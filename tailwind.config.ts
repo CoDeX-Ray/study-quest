@@ -57,6 +57,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // StudyQuest Custom Colors
+        'game-green': {
+          DEFAULT: "hsl(var(--game-green))",
+          dark: "hsl(var(--game-green-dark))",
+          light: "hsl(var(--game-green-light))",
+        },
+        'level-gold': "hsl(var(--level-gold))",
+        'surface-elevated': "hsl(var(--surface-elevated))",
+        'surface-overlay': "hsl(var(--surface-overlay))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,10 +89,40 @@ export default {
             height: "0",
           },
         },
+        "glow": {
+          "0%": { boxShadow: "0 0 20px hsl(var(--game-green) / 0.3)" },
+          "100%": { boxShadow: "0 0 30px hsl(var(--game-green) / 0.6)" },
+        },
+        "bounce-in": {
+          "0%": { transform: "scale(0.3)", opacity: "0" },
+          "50%": { transform: "scale(1.05)" },
+          "70%": { transform: "scale(0.9)" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "slide-in": {
+          "0%": { transform: "translateY(30px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "glow": "glow 2s ease-in-out infinite alternate",
+        "bounce-in": "bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+        "slide-in": "slide-in 0.5s ease-out",
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-card': 'var(--gradient-card)',
+        'gradient-hero': 'var(--gradient-hero)',
+      },
+      boxShadow: {
+        'glow': 'var(--shadow-glow)',
+        'card': 'var(--shadow-card)',
+        'elevated': 'var(--shadow-elevated)',
+      },
+      fontFamily: {
+        'gaming': ['Orbitron', 'monospace'],
       },
     },
   },
