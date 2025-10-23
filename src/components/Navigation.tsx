@@ -1,52 +1,98 @@
-import { Home, BarChart3, Users, Trophy } from "lucide-react";
-import { NavLink } from "react-router-dom";
-import StudyQuestLogo from "./StudyQuestLogo";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import StudyQuestLogo from "./StudyQuestLogo";
+import { Menu, User, LogOut } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navigation = () => {
-  const navItems = [
-    { name: "Home", path: "/", icon: Home },
-    { name: "Dashboard", path: "/dashboard", icon: BarChart3 },
-    { name: "Community", path: "/community", icon: Users },
-  ];
+  const { user, signOut } = useAuth();
 
   return (
-    <nav className="bg-card/80 backdrop-blur-md border-b border-border/50 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="border-b border-border/40 bg-surface/50 backdrop-blur-lg sticky top-0 z-50">
+      <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <StudyQuestLogo />
+          <Link to="/" className="flex items-center">
+            <StudyQuestLogo />
+          </Link>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                    isActive
-                      ? "bg-game-green text-primary-foreground font-medium shadow-glow"
-                      : "text-muted-foreground hover:text-foreground hover:bg-surface-elevated"
-                  }`
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </NavLink>
-            ))}
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-8">
+            <Link to="/" className="text-foreground/80 hover:text-foreground transition-colors">
+              Home
+            </Link>
+            {user && (
+              <>
+                <Link to="/dashboard" className="text-foreground/80 hover:text-foreground transition-colors">
+                  Dashboard
+                </Link>
+                <Link to="/community" className="text-foreground/80 hover:text-foreground transition-colors">
+                  Community
+                </Link>
+              </>
+            )}
+            {!user ? (
+              <Link to="/auth">
+                <Button>Sign In</Button>
+              </Link>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <Link to="/profile">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
-          {/* User Section */}
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-level-gold" />
-              <span className="text-sm font-medium">Level 12</span>
-            </div>
-            <Button variant="outline" className="border-game-green/50 hover:bg-game-green/10">
-              Profile
-            </Button>
-          </div>
+          {/* Mobile Navigation */}
+          <Sheet>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <div className="flex flex-col gap-6 mt-8">
+                <Link to="/" className="text-lg">Home</Link>
+                {user && (
+                  <>
+                    <Link to="/dashboard" className="text-lg">Dashboard</Link>
+                    <Link to="/community" className="text-lg">Community</Link>
+                    <Link to="/profile" className="text-lg">Profile</Link>
+                  </>
+                )}
+                {!user ? (
+                  <Link to="/auth">
+                    <Button className="w-full">Sign In</Button>
+                  </Link>
+                ) : (
+                  <Button onClick={signOut} variant="outline" className="w-full">
+                    Sign Out
+                  </Button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </nav>

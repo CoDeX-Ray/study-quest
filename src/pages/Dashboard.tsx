@@ -1,10 +1,57 @@
-import { BookOpen, Target, Users, TrendingUp, Award, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BookOpen, Target, Users, TrendingUp, Award, Calendar, Clock, Share2, Trophy } from "lucide-react";
 import XPBar from "@/components/XPBar";
 import StatCard from "@/components/StatCard";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+      fetchPosts();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user?.id)
+      .single();
+    
+    if (data) setProfile(data);
+  };
+
+  const fetchPosts = async () => {
+    const { data } = await supabase
+      .from("posts")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    
+    if (data) setPosts(data);
+  };
+
+  if (loading || !profile) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
   const subjects = [
     { name: "Mathematics", progress: 85, color: "bg-blue-500" },
     { name: "Physics", progress: 72, color: "bg-purple-500" },
@@ -28,43 +75,43 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Track your learning progress and achievements</p>
         </div>
 
-        {/* XP Bar */}
+      {/* XP Bar */}
         <Card className="p-6 bg-gradient-card border-border/50">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-semibold">Your Progress</h2>
             <div className="flex items-center gap-2 text-level-gold">
               <Award className="h-5 w-5" />
-              <span className="font-semibold">Level 12 Scholar</span>
+              <span className="font-semibold">Level {profile.level}</span>
             </div>
           </div>
-          <XPBar currentXP={2840} maxXP={3500} level={12} />
+          <XPBar currentXP={profile.xp} maxXP={profile.level * 100} level={profile.level} />
         </Card>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            title="Study Hours"
-            value="156"
-            icon={<BookOpen className="h-6 w-6" />}
+            title="Total XP"
+            value={profile.xp}
+            icon={<Trophy className="h-6 w-6" />}
             trend="up"
           />
           <StatCard
             title="Materials Shared"
-            value="23"
+            value={posts.length}
+            icon={<Share2 className="h-6 w-6" />}
+            trend="up"
+          />
+          <StatCard
+            title="Current Level"
+            value={profile.level}
+            icon={<Award className="h-6 w-6" />}
+            trend="up"
+          />
+          <StatCard
+            title="Role"
+            value={profile.role}
             icon={<Target className="h-6 w-6" />}
-            trend="up"
-          />
-          <StatCard
-            title="Community Rank"
-            value="#42"
-            icon={<Users className="h-6 w-6" />}
-            trend="up"
-          />
-          <StatCard
-            title="Weekly Growth"
-            value="+15%"
-            icon={<TrendingUp className="h-6 w-6" />}
-            trend="up"
+            trend="neutral"
           />
         </div>
 
