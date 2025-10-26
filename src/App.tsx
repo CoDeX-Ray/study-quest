@@ -9,6 +9,10 @@ import Dashboard from "./pages/Dashboard";
 import Community from "./pages/Community";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminBugReports from "./pages/AdminBugReports";
+import AdminActivityLogs from "./pages/AdminActivityLogs";
+import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./hooks/useAuth";
 
@@ -29,6 +33,10 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/bug-reports" element={<AdminBugReports />} />
+              <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

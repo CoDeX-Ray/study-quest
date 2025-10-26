@@ -17,7 +17,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"student" | "professional">("student");
+  const [role, setRole] = useState<"student" | "professional" | "admin">("student");
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +158,7 @@ const Auth = () => {
               </div>
               <div className="space-y-2">
                 <Label>I am a</Label>
-                <RadioGroup value={role} onValueChange={(value) => setRole(value as "student" | "professional")}>
+                <RadioGroup value={role} onValueChange={(value) => setRole(value as "student" | "professional" | "admin")}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="student" id="student" />
                     <Label htmlFor="student" className="cursor-pointer">Student</Label>
@@ -166,6 +166,10 @@ const Auth = () => {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="professional" id="professional" />
                     <Label htmlFor="professional" className="cursor-pointer">Professional (Teacher/Instructor)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="admin" id="admin" />
+                    <Label htmlFor="admin" className="cursor-pointer">Admin</Label>
                   </div>
                 </RadioGroup>
               </div>
