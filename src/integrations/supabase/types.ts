@@ -180,6 +180,7 @@ export type Database = {
           level: number
           name_color: string | null
           role: Database["public"]["Enums"]["app_role"]
+          status: string | null
           updated_at: string
           xp: number
         }
@@ -193,6 +194,7 @@ export type Database = {
           level?: number
           name_color?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          status?: string | null
           updated_at?: string
           xp?: number
         }
@@ -206,6 +208,7 @@ export type Database = {
           level?: number
           name_color?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          status?: string | null
           updated_at?: string
           xp?: number
         }
