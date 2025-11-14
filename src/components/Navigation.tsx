@@ -47,9 +47,6 @@ const Navigation = () => {
               </>
             ) : (
               <>
-                <Link to="/" className="text-foreground/80 hover:text-foreground transition-colors">
-                  Home
-                </Link>
                 <Link to="/dashboard" className="text-foreground/80 hover:text-foreground transition-colors">
                   Dashboard
                 </Link>
@@ -118,11 +115,11 @@ const Navigation = () => {
                   </>
                 ) : (
                   <>
-                    <Link to="/" className="text-lg">Home</Link>
                     <Link to="/dashboard" className="text-lg">Dashboard</Link>
                     <Link to="/community" className="text-lg">Community</Link>
                     <Link to="/profile" className="text-lg">Profile</Link>
                     <Button onClick={signOut} variant="outline" className="w-full">
+                      <LogOut className="mr-2 h-4 w-4" />
                       Sign Out
                     </Button>
                   </>

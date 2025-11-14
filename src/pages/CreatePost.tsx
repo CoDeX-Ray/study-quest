@@ -19,6 +19,8 @@ const CreatePost = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [subject, setSubject] = useState("");
+  const [category, setCategory] = useState("College");
+  const [department, setDepartment] = useState("");
   const [postType, setPostType] = useState<"material" | "strategy" | "idea">("material");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +43,9 @@ const CreatePost = () => {
           user_id: user.id,
           title,
           content,
-          subject,
+          subject: subject || null,
+          category,
+          department: department || null,
           post_type: postType,
         });
 
@@ -105,13 +109,39 @@ const CreatePost = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
+              <Label htmlFor="category">Category</Label>
+              <Input
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="College of Engineering">College of Engineering</SelectItem>
+                  <SelectItem value="College of Education">College of Education</SelectItem>
+                  <SelectItem value="College of Arts and Science">College of Arts and Science</SelectItem>
+                  <SelectItem value="College of Industrial Technology">College of Industrial Technology</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject (Optional)</Label>
               <Input
                 id="subject"
                 placeholder="e.g., Mathematics, Science"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                required
               />
             </div>
 
