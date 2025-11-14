@@ -1,6 +1,7 @@
 import { ArrowRight, Zap, Target, Users, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-banner.jpg";
 
 const Landing = () => {
@@ -48,12 +49,16 @@ const Landing = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-game-green hover:bg-game-green-dark text-lg font-semibold shadow-glow animate-glow">
-                  Start Your Quest
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                <Button asChild size="lg" className="bg-game-green hover:bg-game-green-dark text-lg font-semibold shadow-glow animate-glow">
+                  <Link to="/auth">
+                    Start Your Quest
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
                 </Button>
-                <Button variant="outline" size="lg" className="border-game-green/50 hover:bg-game-green/10">
-                  View Dashboard
+                <Button asChild variant="outline" size="lg" className="border-game-green/50 hover:bg-game-green/10">
+                  <Link to="/community">
+                    Community
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -107,9 +112,11 @@ const Landing = () => {
           <p className="text-xl text-muted-foreground mb-8">
             Join thousands of students who are already leveling up their learning experience
           </p>
-          <Button size="lg" className="bg-game-green hover:bg-game-green-dark text-lg font-semibold shadow-glow">
-            Start Learning Now
-            <ArrowRight className="ml-2 h-5 w-5" />
+          <Button asChild size="lg" className="bg-game-green hover:bg-game-green-dark text-lg font-semibold shadow-glow">
+            <Link to="/auth">
+              Start Learning Now
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
           </Button>
         </div>
       </section>
