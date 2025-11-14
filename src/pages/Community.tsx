@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,10 +39,23 @@ interface Post {
 const Community = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAction, setSelectedAction] = useState<{ type: string; postId?: string; userId?: string; userName?: string } | null>(null);
+
+  const requireAuth = (action: () => void) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to interact with posts",
+      });
+      navigate("/auth");
+      return;
+    }
+    action();
+  };
 
   useEffect(() => {
     fetchPosts();
@@ -192,7 +206,7 @@ const Community = () => {
           </div>
           <Button 
             className="bg-game-green hover:bg-game-green-dark shadow-glow"
-            onClick={() => navigate("/create-post")}
+            onClick={() => requireAuth(() => navigate("/create-post"))}
           >
             <Plus className="h-4 w-4 mr-2" />
             Share Material
@@ -264,15 +278,24 @@ const Community = () => {
                 {/* Post Actions */}
                 <div className="flex items-center justify-between pt-4 border-t border-border/50">
                   <div className="flex items-center gap-6">
-                    <button className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors">
+                    <button 
+                      className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
+                      onClick={() => requireAuth(() => console.log("Like post"))}
+                    >
                       <Heart className="h-4 w-4" />
                       <span className="text-sm">0</span>
                     </button>
-                    <button className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors">
+                    <button 
+                      className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
+                      onClick={() => requireAuth(() => console.log("Comment on post"))}
+                    >
                       <MessageCircle className="h-4 w-4" />
                       <span className="text-sm">0</span>
                     </button>
-                    <button className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors">
+                    <button 
+                      className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
+                      onClick={() => requireAuth(() => console.log("Share post"))}
+                    >
                       <Share2 className="h-4 w-4" />
                       <span className="text-sm">0</span>
                     </button>
