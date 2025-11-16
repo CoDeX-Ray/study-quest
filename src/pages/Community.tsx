@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock, Copy, Check } from "lucide-react";
+import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,8 +124,10 @@ const Community = () => {
         ]);
 
         const profile = profileResult.data || { full_name: "Unknown User", avatar_url: null, level: 1, status: "active" };
-        const likes = likesResult.data || [];
+        // Handle case where table doesn't exist yet - return empty array
+        const likes = (likesResult.error && likesResult.error.code === 'PGRST116') ? [] : (likesResult.data || []);
         const comments = commentsResult.data || [];
+        // Check if current user has liked this post (works for both own posts and others' posts)
         const isLiked = user ? likes.some(like => like.user_id === user.id) : false;
 
         return {
@@ -177,71 +179,105 @@ const Community = () => {
   };
 
   const handleLike = async (postId: string, postTitle: string) => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to like posts",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const post = posts.find(p => p.id === postId);
     if (!post) return;
 
-    if (post.is_liked) {
-      // Unlike
-      const { error } = await supabase
-        .from("post_likes")
-        .delete()
-        .eq("post_id", postId)
-        .eq("user_id", user.id);
+    try {
+      if (post.is_liked) {
+        // Unlike
+        const { error } = await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id);
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to unlike post",
-          variant: "destructive",
-        });
-        return;
+        if (error) {
+          // Check if table doesn't exist
+          if (error.code === 'PGRST116' || error.message?.includes('post_likes') || error.message?.includes('schema cache')) {
+            toast({
+              title: "Table Not Found",
+              description: "The post_likes table doesn't exist. Please run the SQL migration in Supabase SQL Editor. See supabase/migrations/20250117000000_add_post_likes.sql",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: error.message || "Failed to unlike post",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
+        // Log activity
+        await supabase
+          .from("activity_logs")
+          .insert({
+            user_id: user.id,
+            action: "Unliked post in Community",
+            details: {
+              post_id: postId,
+              post_title: postTitle,
+            },
+          });
+      } else {
+        // Like
+        const { error } = await supabase
+          .from("post_likes")
+          .insert({
+            post_id: postId,
+            user_id: user.id,
+          });
+
+        if (error) {
+          // Check if table doesn't exist
+          if (error.code === 'PGRST116' || error.message?.includes('post_likes') || error.message?.includes('schema cache')) {
+            toast({
+              title: "Table Not Found",
+              description: "The post_likes table doesn't exist. Please run the SQL migration in Supabase SQL Editor. See supabase/migrations/20250117000000_add_post_likes.sql",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: error.message || "Failed to like post",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
+        // Log activity
+        await supabase
+          .from("activity_logs")
+          .insert({
+            user_id: user.id,
+            action: "Liked post in Community",
+            details: {
+              post_id: postId,
+              post_title: postTitle,
+            },
+          });
       }
 
-      // Log activity
-      await supabase
-        .from("activity_logs")
-        .insert({
-          user_id: user.id,
-          action: "Unliked post in Community",
-          details: {
-            post_id: postId,
-            post_title: postTitle,
-          },
-        });
-    } else {
-      // Like
-      const { error } = await supabase
-        .from("post_likes")
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-        });
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to like post",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Log activity
-      await supabase
-        .from("activity_logs")
-        .insert({
-          user_id: user.id,
-          action: "Liked post in Community",
-          details: {
-            post_id: postId,
-            post_title: postTitle,
-          },
-        });
+      // Refresh posts to update like counts
+      await fetchPosts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
-
-    fetchPosts();
   };
 
   const handleComment = async (postId: string, postTitle: string) => {
@@ -575,7 +611,7 @@ const Community = () => {
                           ? "text-red-500 hover:text-red-600" 
                           : "text-muted-foreground hover:text-game-green"
                       }`}
-                      onClick={() => requireAuth(() => handleLike(post.id, post.title))}
+                      onClick={() => handleLike(post.id, post.title)}
                     >
                       <Heart className={`h-4 w-4 ${post.is_liked ? "fill-current" : ""}`} />
                       <span className="text-sm">{post.likes_count || 0}</span>

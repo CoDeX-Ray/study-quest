@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Users, Activity, Bug, TrendingUp } from "lucide-react";
+import { AlertCircle, Users, Activity, Bug } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ActivityLog {
