@@ -224,6 +224,21 @@ const AdminDashboard = () => {
                       if (details.content_preview) {
                         displayText += ` - ${details.content_preview}`;
                       }
+                    } else if (log.action === "Liked post in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} liked post: "${details.post_title || 'Untitled'}"`;
+                    } else if (log.action === "Unliked post in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} unliked post: "${details.post_title || 'Untitled'}"`;
+                    } else if (log.action === "Commented on post in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} commented on post: "${details.post_title || 'Untitled'}"`;
+                    } else if (log.action === "Shared post in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} shared post: "${details.post_title || 'Untitled'}"`;
+                    } else if (log.action === "Deleted post in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} deleted post: "${details.post_title || 'Untitled'}"`;
                     } else if (log.action === "Signed in") {
                       displayText = `${userName} signed in`;
                     } else if (log.action === "Signed out") {

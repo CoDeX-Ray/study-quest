@@ -103,6 +103,24 @@ const AdminActivityLogs = () => {
                 if (details.content_preview) {
                   displayText += ` - ${details.content_preview}`;
                 }
+              } else if (log.action === "Liked post in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} liked post: "${details.post_title || 'Untitled'}"`;
+              } else if (log.action === "Unliked post in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} unliked post: "${details.post_title || 'Untitled'}"`;
+              } else if (log.action === "Commented on post in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} commented on post: "${details.post_title || 'Untitled'}"`;
+                if (details.comment_preview) {
+                  displayText += ` - "${details.comment_preview}"`;
+                }
+              } else if (log.action === "Shared post in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} shared post: "${details.post_title || 'Untitled'}"`;
+              } else if (log.action === "Deleted post in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} deleted post: "${details.post_title || 'Untitled'}"`;
               } else if (log.action === "Signed in") {
                 displayText = `${userName} signed in`;
               } else if (log.action === "Signed out") {
@@ -116,16 +134,30 @@ const AdminActivityLogs = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <p className="font-semibold text-foreground">{displayText}</p>
-                      {log.details && log.action === "Posted content in Community" && (
+                      {log.details && (
                         <div className="mt-2 space-y-1">
-                          {(log.details as any).category && (
+                          {(log.details as any).post_id && (
                             <p className="text-xs text-muted-foreground">
-                              Category: {(log.details as any).category}
+                              Post ID: {(log.details as any).post_id}
                             </p>
                           )}
-                          {(log.details as any).subject && (
-                            <p className="text-xs text-muted-foreground">
-                              Subject: {(log.details as any).subject}
+                          {log.action === "Posted content in Community" && (
+                            <>
+                              {(log.details as any).category && (
+                                <p className="text-xs text-muted-foreground">
+                                  Category: {(log.details as any).category}
+                                </p>
+                              )}
+                              {(log.details as any).subject && (
+                                <p className="text-xs text-muted-foreground">
+                                  Subject: {(log.details as any).subject}
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {log.action === "Shared post in Community" && (log.details as any).share_url && (
+                            <p className="text-xs text-muted-foreground break-all">
+                              Share URL: {(log.details as any).share_url}
                             </p>
                           )}
                         </div>

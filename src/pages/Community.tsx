@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock } from "lucide-react";
+import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +42,20 @@ interface Post {
     level: number;
     status: string;
   };
+  likes_count?: number;
+  comments_count?: number;
+  is_liked?: boolean;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles: {
+    full_name: string;
+    avatar_url: string | null;
+  };
 }
 
 const Community = () => {
@@ -49,7 +66,11 @@ const Community = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedAction, setSelectedAction] = useState<{ type: string; postId?: string; userId?: string; userName?: string } | null>(null);
+  const [selectedAction, setSelectedAction] = useState<{ type: string; postId?: string; userId?: string; userName?: string; postTitle?: string } | null>(null);
+  const [commentDialogOpen, setCommentDialogOpen] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [linkCopied, setLinkCopied] = useState<string | null>(null);
 
   const requireAuth = (action: () => void) => {
     if (!user) {
@@ -65,7 +86,7 @@ const Community = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [user]);
 
   const fetchPosts = async () => {
     const { data, error } = await supabase
@@ -83,28 +104,237 @@ const Community = () => {
       return;
     }
 
-    // Fetch profiles for each post
-    const postsWithProfiles = await Promise.all(
+    // Fetch profiles, likes, and comments for each post
+    const postsWithData = await Promise.all(
       (data || []).map(async (post) => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url, level, status")
-          .eq("id", post.user_id)
-          .single();
+        const [profileResult, likesResult, commentsResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("full_name, avatar_url, level, status")
+            .eq("id", post.user_id)
+            .single(),
+          supabase
+            .from("post_likes")
+            .select("user_id")
+            .eq("post_id", post.id),
+          supabase
+            .from("post_comments")
+            .select("id")
+            .eq("post_id", post.id),
+        ]);
+
+        const profile = profileResult.data || { full_name: "Unknown User", avatar_url: null, level: 1, status: "active" };
+        const likes = likesResult.data || [];
+        const comments = commentsResult.data || [];
+        const isLiked = user ? likes.some(like => like.user_id === user.id) : false;
 
         return {
           ...post,
-          profiles: profile || { full_name: "Unknown User", avatar_url: null, level: 1, status: "active" }
+          profiles: profile,
+          likes_count: likes.length,
+          comments_count: comments.length,
+          is_liked: isLiked,
         };
       })
     );
 
-    setPosts(postsWithProfiles);
+    setPosts(postsWithData);
     setLoading(false);
   };
 
+  const fetchComments = async (postId: string) => {
+    const { data, error } = await supabase
+      .from("post_comments")
+      .select("*")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load comments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const commentsWithProfiles = await Promise.all(
+      (data || []).map(async (comment) => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", comment.user_id)
+          .single();
+
+        return {
+          ...comment,
+          profiles: profile || { full_name: "Unknown User", avatar_url: null },
+        };
+      })
+    );
+
+    setComments(prev => ({ ...prev, [postId]: commentsWithProfiles }));
+  };
+
+  const handleLike = async (postId: string, postTitle: string) => {
+    if (!user) return;
+
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    if (post.is_liked) {
+      // Unlike
+      const { error } = await supabase
+        .from("post_likes")
+        .delete()
+        .eq("post_id", postId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to unlike post",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Log activity
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: user.id,
+          action: "Unliked post in Community",
+          details: {
+            post_id: postId,
+            post_title: postTitle,
+          },
+        });
+    } else {
+      // Like
+      const { error } = await supabase
+        .from("post_likes")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+        });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to like post",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Log activity
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: user.id,
+          action: "Liked post in Community",
+          details: {
+            post_id: postId,
+            post_title: postTitle,
+          },
+        });
+    }
+
+    fetchPosts();
+  };
+
+  const handleComment = async (postId: string, postTitle: string) => {
+    if (!user || !commentText.trim()) return;
+
+    const { error } = await supabase
+      .from("post_comments")
+      .insert({
+        post_id: postId,
+        user_id: user.id,
+        content: commentText.trim(),
+      });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to post comment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Log activity
+    await supabase
+      .from("activity_logs")
+      .insert({
+        user_id: user.id,
+        action: "Commented on post in Community",
+        details: {
+          post_id: postId,
+          post_title: postTitle,
+          comment_preview: commentText.trim().substring(0, 100) + (commentText.trim().length > 100 ? "..." : ""),
+        },
+      });
+
+    setCommentText("");
+    fetchComments(postId);
+    fetchPosts();
+  };
+
+  const handleShare = async (postId: string, postTitle: string) => {
+    if (!user) return;
+
+    const postUrl = `${window.location.origin}/community?post=${postId}`;
+    
+    try {
+      await navigator.clipboard.writeText(postUrl);
+      setLinkCopied(postId);
+      setTimeout(() => setLinkCopied(null), 2000);
+      
+      toast({
+        title: "Link Copied!",
+        description: "Post link has been copied to clipboard",
+      });
+
+      // Log activity
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: user.id,
+          action: "Shared post in Community",
+          details: {
+            post_id: postId,
+            post_title: postTitle,
+            share_url: postUrl,
+          },
+        });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeletePost = async () => {
-    if (!selectedAction?.postId) return;
+    if (!selectedAction?.postId || !user) return;
+
+    const post = posts.find(p => p.id === selectedAction.postId);
+    if (!post) return;
+
+    // Log activity before deletion
+    await supabase
+      .from("activity_logs")
+      .insert({
+        user_id: user.id,
+        action: "Deleted post in Community",
+        details: {
+          post_id: selectedAction.postId,
+          post_title: post.title,
+        },
+      });
 
     const { error } = await supabase
       .from("posts")
@@ -274,12 +504,16 @@ const Community = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdmin && (
+                    {(isAdmin || (user && post.user_id === user.id)) && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => requireAuth(() => setSelectedAction({ type: "deletePost", postId: post.id }))}
+                        onClick={() => requireAuth(() => setSelectedAction({ 
+                          type: "deletePost", 
+                          postId: post.id,
+                          postTitle: post.title 
+                        }))}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -336,25 +570,86 @@ const Community = () => {
                 <div className="flex items-center justify-between pt-4 border-t border-border/50">
                   <div className="flex items-center gap-6">
                     <button 
-                      className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
-                      onClick={() => requireAuth(() => console.log("Like post"))}
+                      className={`flex items-center gap-2 transition-colors ${
+                        post.is_liked 
+                          ? "text-red-500 hover:text-red-600" 
+                          : "text-muted-foreground hover:text-game-green"
+                      }`}
+                      onClick={() => requireAuth(() => handleLike(post.id, post.title))}
                     >
-                      <Heart className="h-4 w-4" />
-                      <span className="text-sm">0</span>
+                      <Heart className={`h-4 w-4 ${post.is_liked ? "fill-current" : ""}`} />
+                      <span className="text-sm">{post.likes_count || 0}</span>
                     </button>
+                    
+                    <Dialog open={commentDialogOpen === post.id} onOpenChange={(open) => {
+                      setCommentDialogOpen(open ? post.id : null);
+                      if (open) {
+                        fetchComments(post.id);
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <button 
+                          className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
+                          onClick={() => requireAuth(() => {})}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          <span className="text-sm">{post.comments_count || 0}</span>
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Comments</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Textarea
+                              placeholder="Write a comment..."
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              rows={3}
+                            />
+                            <Button 
+                              onClick={() => handleComment(post.id, post.title)}
+                              disabled={!commentText.trim()}
+                              className="w-full"
+                            >
+                              Post Comment
+                            </Button>
+                          </div>
+                          <div className="space-y-3">
+                            {comments[post.id]?.map((comment) => (
+                              <div key={comment.id} className="flex gap-3 p-3 bg-surface rounded-lg">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={comment.profiles?.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    {comment.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold">{comment.profiles?.full_name || 'Unknown'}</p>
+                                  <p className="text-sm text-muted-foreground">{comment.content}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{getTimeAgo(comment.created_at)}</p>
+                                </div>
+                              </div>
+                            ))}
+                            {(!comments[post.id] || comments[post.id].length === 0) && (
+                              <p className="text-center text-muted-foreground py-4">No comments yet. Be the first to comment!</p>
+                            )}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
                     <button 
                       className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
-                      onClick={() => requireAuth(() => console.log("Comment on post"))}
+                      onClick={() => requireAuth(() => handleShare(post.id, post.title))}
                     >
-                      <MessageCircle className="h-4 w-4" />
-                      <span className="text-sm">0</span>
-                    </button>
-                    <button 
-                      className="flex items-center gap-2 text-muted-foreground hover:text-game-green transition-colors"
-                      onClick={() => requireAuth(() => console.log("Share post"))}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="text-sm">0</span>
+                      {linkCopied === post.id ? (
+                        <Check className="h-4 w-4 text-game-green" />
+                      ) : (
+                        <Share2 className="h-4 w-4" />
+                      )}
+                      <span className="text-sm">Share</span>
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
@@ -376,13 +671,6 @@ const Community = () => {
                         >
                           <Ban className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => setSelectedAction({ type: "delete", postId: post.id })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </>
                     )}
                   </div>
@@ -398,12 +686,12 @@ const Community = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {selectedAction?.type === "delete" && "Delete Post"}
+              {selectedAction?.type === "deletePost" && "Delete Post"}
               {selectedAction?.type === "block" && "Block User"}
               {selectedAction?.type === "ban" && "Ban User"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedAction?.type === "delete" && "Are you sure you want to delete this post? This action cannot be undone."}
+              {selectedAction?.type === "deletePost" && "Are you sure you want to delete this post? This action cannot be undone."}
               {selectedAction?.type === "block" && `Are you sure you want to block ${selectedAction?.userName}? They will not be able to post or interact.`}
               {selectedAction?.type === "ban" && `Are you sure you want to ban ${selectedAction?.userName}? This is a permanent action.`}
             </AlertDialogDescription>
@@ -412,7 +700,7 @@ const Community = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedAction?.type === "delete") handleDeletePost();
+                if (selectedAction?.type === "deletePost") handleDeletePost();
                 if (selectedAction?.type === "block") handleBlockUser();
                 if (selectedAction?.type === "ban") handleBanUser();
               }}
