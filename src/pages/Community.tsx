@@ -469,6 +469,17 @@ const Community = () => {
   const handleProfileClick = (userId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Require authentication to view profiles
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to view user profiles",
+      });
+      navigate("/auth");
+      return;
+    }
+    
     setSelectedUserId(userId);
     setProfilePopupOpen(true);
   };

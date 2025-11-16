@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trophy, Award, ExternalLink } from "lucide-react";
+import { Trophy, Award, ExternalLink, LogIn } from "lucide-react";
 import XPBar from "@/components/XPBar";
 
 interface Profile {
@@ -33,17 +34,25 @@ interface ProfilePopupProps {
 
 const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open && userId) {
+    // Require authentication to view profiles
+    if (open && !authLoading && !user) {
+      onOpenChange(false);
+      navigate("/auth");
+      return;
+    }
+
+    if (open && userId && user) {
       fetchProfile();
       fetchAchievements();
     }
-  }, [open, userId]);
+  }, [open, userId, user, authLoading, navigate, onOpenChange]);
 
   const fetchProfile = async () => {
     if (!userId) return;
@@ -87,6 +96,34 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
 
   if (!userId) return null;
 
+  // Show login prompt if not authenticated
+  if (!authLoading && !user) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Authentication Required</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-muted-foreground">
+              Please sign in to view user profiles.
+            </p>
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                navigate("/auth");
+              }}
+              className="w-full bg-game-green hover:bg-game-green-dark"
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -94,7 +131,7 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
           <DialogTitle>User Profile</DialogTitle>
         </DialogHeader>
         
-        {loading ? (
+        {authLoading || loading ? (
           <div className="flex items-center justify-center py-8">Loading...</div>
         ) : profile ? (
           <div className="space-y-6">
