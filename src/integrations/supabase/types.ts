@@ -138,6 +138,7 @@ export type Database = {
           department: string | null
           file_url: string | null
           id: string
+          is_announcement: boolean
           post_type: string
           subject: string
           title: string
@@ -152,6 +153,7 @@ export type Database = {
           department?: string | null
           file_url?: string | null
           id?: string
+          is_announcement?: boolean
           post_type: string
           subject: string
           title: string
@@ -166,6 +168,7 @@ export type Database = {
           department?: string | null
           file_url?: string | null
           id?: string
+          is_announcement?: boolean
           post_type?: string
           subject?: string
           title?: string

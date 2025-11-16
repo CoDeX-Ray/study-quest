@@ -28,6 +28,10 @@ interface Post {
   post_type: string;
   created_at: string;
   user_id: string;
+  file_url: string | null;
+  category: string;
+  department: string | null;
+  is_announcement: boolean;
   profiles: {
     full_name: string;
     avatar_url: string | null;
@@ -245,11 +249,14 @@ const Community = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold">{post.profiles?.full_name || 'Unknown User'}</span>
                         <Badge variant="outline" className="text-xs border-level-gold/50 text-level-gold">
                           Level {post.profiles?.level || 1}
                         </Badge>
+                        {post.is_announcement && (
+                          <Badge className="bg-primary text-xs">Announcement</Badge>
+                        )}
                         {post.profiles?.status && post.profiles.status !== 'active' && (
                           <Badge variant="destructive" className="text-xs">
                             {post.profiles.status}
@@ -260,9 +267,21 @@ const Community = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={getSubjectColor(post.subject)}>
-                      {post.subject}
-                    </Badge>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => requireAuth(() => setSelectedAction({ type: "deletePost", postId: post.id }))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {post.subject && (
+                      <Badge className={getSubjectColor(post.subject)}>
+                        {post.subject}
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
@@ -273,6 +292,37 @@ const Community = () => {
                     <h3 className="text-lg font-semibold">{post.title}</h3>
                   </div>
                   <p className="text-muted-foreground">{post.content}</p>
+                  
+                  {/* File Attachment */}
+                  {post.file_url && (
+                    <div className="mt-3 p-4 bg-surface border border-border rounded-lg">
+                      {post.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                        <img 
+                          src={post.file_url} 
+                          alt="Post attachment" 
+                          className="max-w-full rounded-lg max-h-96 object-contain"
+                        />
+                      ) : (
+                        <a 
+                          href={post.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-primary hover:underline"
+                        >
+                          <FileText className="w-4 h-4" />
+                          View Attached File
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Category and Department */}
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    <Badge variant="outline">{post.category}</Badge>
+                    {post.department && (
+                      <Badge variant="outline">{post.department}</Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Post Actions */}
