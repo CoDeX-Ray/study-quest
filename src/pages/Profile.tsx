@@ -54,6 +54,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [achievementPopup, setAchievementPopup] = useState<{ id: string; name: string; description: string; icon: string; xp_required: number } | null>(null);
   const [levelUpPopup, setLevelUpPopup] = useState<{ level: number } | null>(null);
+  const [activeTab, setActiveTab] = useState("achievements");
 
   // Determine which user's profile to show
   const targetUserId = userId || user?.id;
@@ -139,16 +140,9 @@ const Profile = () => {
   };
 
   const handlePurchase = async (item: ShopItem) => {
-    if (!profile || !user || profile.xp < item.xp_cost) {
-      toast({
-        title: "Not enough XP",
-        description: `You need ${item.xp_cost} XP to purchase this item. Your XP will be reduced by ${item.xp_cost} when you purchase.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!profile || !user) return;
 
-    // Check if already purchased
+    // Check if already purchased FIRST - if owned, just equip it (no XP check needed)
     if (purchases.includes(item.id)) {
       // Equip the item
       const updateData: { border_style?: string; name_color?: string } = {};
@@ -178,6 +172,16 @@ const Profile = () => {
       });
 
       fetchProfile();
+      return;
+    }
+
+    // Purchase new item - check XP only for new purchases
+    if (profile.xp < item.xp_cost) {
+      toast({
+        title: "Not enough XP",
+        description: `You need ${item.xp_cost} XP to purchase this item. Your XP will be reduced by ${item.xp_cost} when you purchase.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -349,7 +353,7 @@ const Profile = () => {
         </div>
       </Card>
 
-      <Tabs defaultValue="achievements" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className={`grid w-full mb-8 ${isViewingOwnProfile ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="achievements"><Trophy className="w-4 h-4 mr-2" />Achievements</TabsTrigger>
           {isViewingOwnProfile && (
