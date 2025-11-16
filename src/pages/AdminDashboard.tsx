@@ -8,6 +8,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, Users, Activity, Bug, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface ActivityLog {
+  id: string;
+  action: string;
+  details: any;
+  created_at: string;
+  user_id: string;
+  profiles?: {
+    full_name: string;
+    email: string;
+  };
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
@@ -17,6 +29,7 @@ const AdminDashboard = () => {
     openBugReports: 0,
     recentActivities: 0,
   });
+  const [recentLogs, setRecentLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,10 +40,11 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [profiles, bugReports, activities] = await Promise.all([
+      const [profiles, bugReports, activities, recentActivities] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("bug_reports").select("id, status", { count: "exact" }),
         supabase.from("activity_logs").select("id", { count: "exact", head: true }),
+        supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(10),
       ]);
 
       setStats({
@@ -39,6 +53,25 @@ const AdminDashboard = () => {
         openBugReports: bugReports.data?.filter(b => b.status === "open").length || 0,
         recentActivities: activities.count || 0,
       });
+
+      // Fetch profile data for recent activities
+      if (recentActivities.data) {
+        const logsWithProfiles = await Promise.all(
+          recentActivities.data.map(async (log) => {
+            if (log.user_id) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("full_name, email")
+                .eq("id", log.user_id)
+                .single();
+              return { ...log, profiles: profile } as ActivityLog;
+            }
+            return { ...log } as ActivityLog;
+          })
+        );
+        setRecentLogs(logsWithProfiles);
+      }
+      
       setLoading(false);
     };
 
@@ -173,8 +206,43 @@ const AdminDashboard = () => {
 
           <TabsContent value="logs">
             <Card className="p-6 border-border/50 bg-surface">
-              <h2 className="text-2xl font-bold mb-4">Activity Logs</h2>
-              <Button onClick={() => navigate("/admin/activity-logs")}>View All Logs</Button>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">Recent Activity Logs</h2>
+                <Button onClick={() => navigate("/admin/activity-logs")}>View All Logs</Button>
+              </div>
+              <div className="space-y-3">
+                {recentLogs.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No recent activities</p>
+                ) : (
+                  recentLogs.map((log) => {
+                    const userName = log.profiles?.full_name || log.profiles?.email || "Unknown";
+                    let displayText = "";
+                    
+                    if (log.action === "Posted content in Community" && log.details) {
+                      const details = log.details as any;
+                      displayText = `${userName} posted content: "${details.post_title || 'Untitled'}" (${details.post_type || 'post'})`;
+                      if (details.content_preview) {
+                        displayText += ` - ${details.content_preview}`;
+                      }
+                    } else if (log.action === "Signed in") {
+                      displayText = `${userName} signed in`;
+                    } else if (log.action === "Signed out") {
+                      displayText = `${userName} signed out`;
+                    } else {
+                      displayText = `${userName}: ${log.action}`;
+                    }
+
+                    return (
+                      <div key={log.id} className="p-3 bg-background/50 rounded-lg border border-border/50">
+                        <p className="text-sm font-medium text-foreground">{displayText}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(log.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </Card>
           </TabsContent>
         </Tabs>

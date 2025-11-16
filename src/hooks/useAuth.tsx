@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -39,6 +39,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    // Log activity: user signed out (before signing out)
+    if (user) {
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: user.id,
+          action: "Signed out",
+          details: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+    }
+    
     await supabase.auth.signOut();
     navigate("/");
   };

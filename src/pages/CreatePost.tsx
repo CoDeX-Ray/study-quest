@@ -96,6 +96,21 @@ const CreatePost = () => {
 
       if (postError) throw postError;
 
+      // Log activity: user posted content
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: user.id,
+          action: "Posted content in Community",
+          details: {
+            post_title: title,
+            post_type: postType,
+            category: category,
+            subject: subject || null,
+            content_preview: content.substring(0, 100) + (content.length > 100 ? "..." : ""),
+          },
+        });
+
       // Update user XP
       const { data: profile } = await supabase
         .from("profiles")

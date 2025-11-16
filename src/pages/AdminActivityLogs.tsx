@@ -93,26 +93,51 @@ const AdminActivityLogs = () => {
               <p className="text-muted-foreground">No activity logs found</p>
             </Card>
           ) : (
-            logs.map((log) => (
-              <Card key={log.id} className="p-4 border-border/50 bg-surface">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">{log.action}</p>
-                    <p className="text-sm text-muted-foreground">
-                      User: {log.profiles?.full_name || log.profiles?.email || "Unknown"}
+            logs.map((log) => {
+              const userName = log.profiles?.full_name || log.profiles?.email || "Unknown";
+              let displayText = "";
+              
+              if (log.action === "Posted content in Community" && log.details) {
+                const details = log.details as any;
+                displayText = `${userName} posted content: "${details.post_title || 'Untitled'}" (${details.post_type || 'post'})`;
+                if (details.content_preview) {
+                  displayText += ` - ${details.content_preview}`;
+                }
+              } else if (log.action === "Signed in") {
+                displayText = `${userName} signed in`;
+              } else if (log.action === "Signed out") {
+                displayText = `${userName} signed out`;
+              } else {
+                displayText = `${userName}: ${log.action}`;
+              }
+
+              return (
+                <Card key={log.id} className="p-4 border-border/50 bg-surface">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">{displayText}</p>
+                      {log.details && log.action === "Posted content in Community" && (
+                        <div className="mt-2 space-y-1">
+                          {(log.details as any).category && (
+                            <p className="text-xs text-muted-foreground">
+                              Category: {(log.details as any).category}
+                            </p>
+                          )}
+                          {(log.details as any).subject && (
+                            <p className="text-xs text-muted-foreground">
+                              Subject: {(log.details as any).subject}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground whitespace-nowrap ml-4">
+                      {new Date(log.created_at).toLocaleString()}
                     </p>
-                    {log.details && (
-                      <pre className="text-xs text-muted-foreground mt-2 bg-background/50 p-2 rounded">
-                        {JSON.stringify(log.details, null, 2)}
-                      </pre>
-                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(log.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
       </div>

@@ -23,7 +23,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -34,8 +34,29 @@ const Auth = () => {
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      navigate("/dashboard");
+    } else if (data.user) {
+      // Log activity: user signed in
+      await supabase
+        .from("activity_logs")
+        .insert({
+          user_id: data.user.id,
+          action: "Signed in",
+          details: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+      // Check if user is admin
+      const { data: isAdmin } = await supabase.rpc('has_role', {
+        _user_id: data.user.id,
+        _role: 'admin'
+      });
+
+      if (isAdmin) {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
     }
 
     setLoading(false);

@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Target, Users, TrendingUp, Award, Calendar, Clock, Share2, Trophy } from "lucide-react";
+import { Target, Award, Calendar, Share2, Trophy } from "lucide-react";
 import XPBar from "@/components/XPBar";
 import StatCard from "@/components/StatCard";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
@@ -19,6 +21,12 @@ const Dashboard = () => {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!adminLoading && isAdmin) {
+      navigate("/admin/dashboard");
+    }
+  }, [isAdmin, adminLoading, navigate]);
 
   useEffect(() => {
     if (user) {
