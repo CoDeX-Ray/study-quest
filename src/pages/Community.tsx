@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import ProfilePopup from "@/components/ProfilePopup";
 
 import {
   AlertDialog,
@@ -71,6 +72,8 @@ const Community = () => {
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [linkCopied, setLinkCopied] = useState<string | null>(null);
+  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const requireAuth = (action: () => void) => {
     if (!user) {
@@ -318,6 +321,37 @@ const Community = () => {
     fetchPosts();
   };
 
+  const handleDeleteComment = async (commentId: string, postId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("post_comments")
+      .delete()
+      .eq("id", commentId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete comment",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Success", description: "Comment deleted successfully" });
+      fetchComments(postId);
+      
+      // Update comment count
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, comments_count: Math.max((p.comments_count || 0) - 1, 0) }
+            : p
+        ));
+      }
+    }
+  };
+
   const handleShare = async (postId: string, postTitle: string) => {
     if (!user) return;
 
@@ -432,6 +466,13 @@ const Community = () => {
     setSelectedAction(null);
   };
 
+  const handleProfileClick = (userId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedUserId(userId);
+    setProfilePopupOpen(true);
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case "pdf": return <FileText className="h-4 w-4" />;
@@ -515,22 +556,25 @@ const Community = () => {
                 {/* Post Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Link to={`/profile/${post.user_id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                    <div 
+                      onClick={(e) => handleProfileClick(post.user_id, e)}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                    >
                       <Avatar className="h-10 w-10 border-2 border-game-green/50">
                         <AvatarImage src={post.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="bg-surface-elevated">
                           {post.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                         </AvatarFallback>
                       </Avatar>
-                    </Link>
+                    </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link 
-                          to={`/profile/${post.user_id}`}
+                        <span 
+                          onClick={(e) => handleProfileClick(post.user_id, e)}
                           className="font-semibold hover:text-primary transition-colors cursor-pointer"
                         >
                           {post.profiles?.full_name || 'Unknown User'}
-                        </Link>
+                        </span>
                         <Badge variant="outline" className="text-xs border-level-gold/50 text-level-gold">
                           Level {post.profiles?.level || 1}
                         </Badge>
@@ -662,23 +706,44 @@ const Community = () => {
                           <div className="space-y-3">
                             {comments[post.id]?.map((comment) => (
                               <div key={comment.id} className="flex gap-3 p-3 bg-surface rounded-lg">
-                                <Link to={`/profile/${comment.user_id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                                <div 
+                                  onClick={(e) => handleProfileClick(comment.user_id, e)}
+                                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                                >
                                   <Avatar className="h-8 w-8">
                                     <AvatarImage src={comment.profiles?.avatar_url || undefined} />
                                     <AvatarFallback>
                                       {comment.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                                     </AvatarFallback>
                                   </Avatar>
-                                </Link>
+                                </div>
                                 <div className="flex-1">
-                                  <Link 
-                                    to={`/profile/${comment.user_id}`}
-                                    className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer block"
-                                  >
-                                    {comment.profiles?.full_name || 'Unknown'}
-                                  </Link>
-                                  <p className="text-sm text-muted-foreground">{comment.content}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{getTimeAgo(comment.created_at)}</p>
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <span 
+                                        onClick={(e) => handleProfileClick(comment.user_id, e)}
+                                        className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer block"
+                                      >
+                                        {comment.profiles?.full_name || 'Unknown'}
+                                      </span>
+                                      <p className="text-sm text-muted-foreground">{comment.content}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">{getTimeAgo(comment.created_at)}</p>
+                                    </div>
+                                    {user && user.id === comment.user_id && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                        onClick={() => {
+                                          if (window.confirm("Are you sure you want to delete this comment?")) {
+                                            handleDeleteComment(comment.id, post.id);
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -730,6 +795,13 @@ const Community = () => {
           )}
         </div>
       </div>
+
+      {/* Profile Popup */}
+      <ProfilePopup
+        userId={selectedUserId}
+        open={profilePopupOpen}
+        onOpenChange={setProfilePopupOpen}
+      />
 
       {/* Confirmation Dialogs */}
       <AlertDialog open={!!selectedAction} onOpenChange={() => setSelectedAction(null)}>
