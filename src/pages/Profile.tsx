@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, ShoppingBag, Award, Info } from "lucide-react";
 import XPBar from "@/components/XPBar";
+import { checkAndUnlockAchievements, getAchievementById } from "@/utils/achievements";
+import AchievementPopup from "@/components/AchievementPopup";
+import LevelUpPopup from "@/components/LevelUpPopup";
 
 interface Profile {
   id: string;
@@ -49,6 +52,8 @@ const Profile = () => {
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [purchases, setPurchases] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [achievementPopup, setAchievementPopup] = useState<{ id: string; name: string; description: string; icon: string; xp_required: number } | null>(null);
+  const [levelUpPopup, setLevelUpPopup] = useState<{ level: number } | null>(null);
 
   // Determine which user's profile to show
   const targetUserId = userId || user?.id;
@@ -134,46 +139,179 @@ const Profile = () => {
   };
 
   const handlePurchase = async (item: ShopItem) => {
-    if (!profile || profile.xp < item.xp_cost) {
+    if (!profile || !user || profile.xp < item.xp_cost) {
       toast({
         title: "Not enough XP",
-        description: `You need ${item.xp_cost} XP to purchase this item.`,
+        description: `You need ${item.xp_cost} XP to purchase this item. Your XP will be reduced by ${item.xp_cost} when you purchase.`,
         variant: "destructive",
       });
       return;
     }
 
-    const { error } = await supabase
-      .from("user_purchases")
-      .insert({ user_id: user?.id, shop_item_id: item.id });
+    // Check if already purchased
+    if (purchases.includes(item.id)) {
+      // Equip the item
+      const updateData: { border_style?: string; name_color?: string } = {};
+      if (item.item_type === "border") {
+        updateData.border_style = item.item_value;
+      } else if (item.item_type === "name_color") {
+        updateData.name_color = item.item_value;
+      }
 
-    if (!error) {
-      const newXP = profile.xp - item.xp_cost;
-      // Recalculate level when XP changes
-      const newLevel = Math.floor(newXP / 100) + 1;
-
-      const { error: updateError } = await supabase
+      const { error: equipError } = await supabase
         .from("profiles")
-        .update({ xp: newXP, level: newLevel })
-        .eq("id", user?.id);
+        .update(updateData)
+        .eq("id", user.id);
 
-      if (updateError) {
+      if (equipError) {
         toast({
           title: "Error",
-          description: "Failed to update profile",
+          description: "Failed to equip item",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Purchase successful!",
-        description: `You bought ${item.name}`,
+        title: "Item Equipped!",
+        description: `${item.name} has been equipped.`,
       });
 
       fetchProfile();
-      fetchShopItems();
+      return;
     }
+
+    // Purchase new item
+    const { error } = await supabase
+      .from("user_purchases")
+      .insert({ user_id: user.id, shop_item_id: item.id });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to purchase item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Deduct XP and apply item
+    const oldLevel = profile.level;
+    const newXP = profile.xp - item.xp_cost;
+    const newLevel = Math.floor(newXP / 100) + 1;
+
+    const updateData: { xp: number; level: number; border_style?: string; name_color?: string } = {
+      xp: newXP,
+      level: newLevel,
+    };
+
+    if (item.item_type === "border") {
+      updateData.border_style = item.item_value;
+    } else if (item.item_type === "name_color") {
+      updateData.name_color = item.item_value;
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", user.id);
+
+    if (updateError) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for level down (if level decreased)
+    if (newLevel < oldLevel) {
+      // Log level down for admin
+      await supabase.from("activity_logs").insert({
+        user_id: user.id,
+        action: "Level Down (XP Spent)",
+        details: {
+          old_level: oldLevel,
+          new_level: newLevel,
+          xp_spent: item.xp_cost,
+          total_xp: newXP,
+        },
+      });
+    }
+
+    // Log activity for admin
+    await supabase.from("activity_logs").insert({
+      user_id: user.id,
+      action: "Purchased item from Shop",
+      details: {
+        item_name: item.name,
+        item_type: item.item_type,
+        item_value: item.item_value,
+        xp_cost: item.xp_cost,
+        xp_remaining: newXP,
+      },
+    });
+
+    // Get post count for achievement checking
+    const { count: postCount } = await supabase
+      .from("posts")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    // Check achievements (though XP decreased, some achievements might still be valid)
+    const newlyUnlocked = await checkAndUnlockAchievements(
+      user.id,
+      newXP,
+      postCount || 0
+    );
+
+    if (newlyUnlocked.length > 0) {
+      const firstAchievement = await getAchievementById(newlyUnlocked[0]);
+      if (firstAchievement) {
+        setAchievementPopup(firstAchievement);
+      }
+    }
+
+    toast({
+      title: "Purchase successful!",
+      description: `You bought and equipped ${item.name}. ${item.xp_cost} XP has been deducted from your account.`,
+    });
+
+    fetchProfile();
+    fetchShopItems();
+  };
+
+  const handleUnequip = async (item: ShopItem) => {
+    if (!user || !purchases.includes(item.id)) return;
+
+    const updateData: { border_style?: string; name_color?: string } = {};
+    if (item.item_type === "border") {
+      updateData.border_style = "default";
+    } else if (item.item_type === "name_color") {
+      updateData.name_color = "default";
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", user.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to unequip item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Item Unequipped",
+      description: `${item.name} has been unequipped.`,
+    });
+
+    fetchProfile();
   };
 
   if (authLoading || loading || !profile) {
@@ -182,6 +320,17 @@ const Profile = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-6xl">
+      <AchievementPopup
+        achievement={achievementPopup}
+        open={!!achievementPopup}
+        onOpenChange={(open) => !open && setAchievementPopup(null)}
+      />
+      <LevelUpPopup
+        newLevel={levelUpPopup?.level || 0}
+        open={!!levelUpPopup}
+        onOpenChange={(open) => !open && setLevelUpPopup(null)}
+      />
+      
       <Card className="p-6 md:p-8 mb-8 bg-gradient-card border-border/50">
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="w-24 h-24 rounded-full bg-game-green/20 flex items-center justify-center text-4xl">
@@ -237,28 +386,70 @@ const Profile = () => {
 
         {isViewingOwnProfile && (
           <TabsContent value="shop">
+            <Card className="p-4 mb-6 bg-warning/10 border-warning/20">
+              <h3 className="font-semibold mb-2">💡 How Shop Works</h3>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>When you purchase an item, <strong>XP will be deducted</strong> from your account (amount shown on each item)</li>
+                <li>Purchased items are automatically equipped</li>
+                <li>You can equip/unequip owned items anytime</li>
+                <li>Your level may decrease if XP deduction causes you to drop below the current level threshold</li>
+              </ul>
+            </Card>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {shopItems.map((item) => {
                 const isPurchased = purchases.includes(item.id);
                 const canAfford = profile.xp >= item.xp_cost;
+                const isEquipped = 
+                  (item.item_type === "border" && profile.border_style === item.item_value) ||
+                  (item.item_type === "name_color" && profile.name_color === item.item_value);
 
                 return (
                   <Card key={item.id} className="p-6 bg-surface border-border/50">
                     <h3 className="font-bold text-lg mb-2">{item.name}</h3>
                     <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
-                    <div className="flex items-center justify-between">
-                      <Badge variant="secondary">{item.xp_cost} XP</Badge>
-                      {isPurchased ? (
-                        <Badge className="bg-game-green">Owned</Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePurchase(item)}
-                          disabled={!canAfford}
-                        >
-                          Buy
-                        </Button>
-                      )}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary">{item.xp_cost} XP</Badge>
+                        {isEquipped && (
+                          <Badge className="bg-level-gold">Equipped</Badge>
+                        )}
+                        {isPurchased && !isEquipped && (
+                          <Badge className="bg-game-green">Owned</Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {!isPurchased ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handlePurchase(item)}
+                            disabled={!canAfford}
+                            className="flex-1"
+                          >
+                            Buy & Equip
+                          </Button>
+                        ) : (
+                          <>
+                            {!isEquipped ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handlePurchase(item)}
+                                className="flex-1 bg-game-green hover:bg-game-green-dark"
+                              >
+                                Equip
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUnequip(item)}
+                                className="flex-1"
+                              >
+                                Unequip
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </Card>
                 );

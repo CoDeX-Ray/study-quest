@@ -10,6 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X } from "lucide-react";
+import { checkAndUnlockAchievements, getAchievementById } from "@/utils/achievements";
+import AchievementPopup from "@/components/AchievementPopup";
+import LevelUpPopup from "@/components/LevelUpPopup";
 
 const CreatePost = () => {
   const { user } = useAuth();
@@ -24,6 +27,8 @@ const CreatePost = () => {
   const [postType, setPostType] = useState<"material" | "strategy" | "idea">("material");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [achievementPopup, setAchievementPopup] = useState<{ id: string; name: string; description: string; icon: string; xp_required: number } | null>(null);
+  const [levelUpPopup, setLevelUpPopup] = useState<{ level: number } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -119,6 +124,7 @@ const CreatePost = () => {
         .single();
 
       if (profile) {
+        const oldLevel = profile.level;
         const newXP = profile.xp + xpEarned;
         // Level calculation: Level 1 = 0-99 XP, Level 2 = 100-199 XP, etc.
         const newLevel = Math.floor(newXP / 100) + 1;
@@ -129,6 +135,61 @@ const CreatePost = () => {
           .eq("id", user.id);
 
         if (updateError) throw updateError;
+
+        // Check for level up
+        if (newLevel > oldLevel) {
+          // Log level up for admin
+          await supabase.from("activity_logs").insert({
+            user_id: user.id,
+            action: "Level Up / Rank Up",
+            details: {
+              old_level: oldLevel,
+              new_level: newLevel,
+              xp_earned: xpEarned,
+              total_xp: newXP,
+            },
+          });
+
+          // Show level up popup
+          setLevelUpPopup({ level: newLevel });
+        }
+
+        // Get user's post count for achievement checking
+        const { count: postCount } = await supabase
+          .from("posts")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+
+        // Check and unlock achievements
+        const newlyUnlocked = await checkAndUnlockAchievements(
+          user.id,
+          newXP,
+          postCount || 0
+        );
+
+        // Show achievement popups
+        if (newlyUnlocked.length > 0) {
+          const firstAchievement = await getAchievementById(newlyUnlocked[0]);
+          if (firstAchievement) {
+            setAchievementPopup(firstAchievement);
+          }
+
+          // Log achievements for admin
+          for (const achievementId of newlyUnlocked) {
+            const achievement = await getAchievementById(achievementId);
+            if (achievement) {
+              await supabase.from("activity_logs").insert({
+                user_id: user.id,
+                action: "Unlocked Achievement",
+                details: {
+                  achievement_name: achievement.name,
+                  achievement_icon: achievement.icon,
+                  xp_required: achievement.xp_required,
+                },
+              });
+            }
+          }
+        }
       }
 
       toast({
@@ -136,7 +197,10 @@ const CreatePost = () => {
         description: `Post created! You earned ${xpEarned} XP.`,
       });
 
-      navigate("/community");
+      // Navigate after a short delay to allow popups to show
+      setTimeout(() => {
+        navigate("/community");
+      }, 2000);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -150,6 +214,17 @@ const CreatePost = () => {
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-3xl">
+      <AchievementPopup
+        achievement={achievementPopup}
+        open={!!achievementPopup}
+        onOpenChange={(open) => !open && setAchievementPopup(null)}
+      />
+      <LevelUpPopup
+        newLevel={levelUpPopup?.level || 0}
+        open={!!levelUpPopup}
+        onOpenChange={(open) => !open && setLevelUpPopup(null)}
+      />
+      
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back

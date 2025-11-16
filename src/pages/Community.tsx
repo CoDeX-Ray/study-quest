@@ -324,6 +324,13 @@ const Community = () => {
   const handleDeleteComment = async (commentId: string, postId: string) => {
     if (!user) return;
 
+    // Get comment details before deletion for logging
+    const { data: comment } = await supabase
+      .from("post_comments")
+      .select("content")
+      .eq("id", commentId)
+      .single();
+
     const { error } = await supabase
       .from("post_comments")
       .delete()
@@ -337,6 +344,17 @@ const Community = () => {
         variant: "destructive",
       });
     } else {
+      // Log comment deletion for admin
+      await supabase.from("activity_logs").insert({
+        user_id: user.id,
+        action: "Deleted comment",
+        details: {
+          comment_id: commentId,
+          post_id: postId,
+          comment_preview: comment?.content?.substring(0, 100) || "",
+        },
+      });
+
       toast({ title: "Success", description: "Comment deleted successfully" });
       fetchComments(postId);
       
