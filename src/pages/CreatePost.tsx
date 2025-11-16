@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, X } from "lucide-react";
 
 const CreatePost = () => {
   const { user } = useAuth();
@@ -22,6 +22,28 @@ const CreatePost = () => {
   const [category, setCategory] = useState("College");
   const [department, setDepartment] = useState("");
   const [postType, setPostType] = useState<"material" | "strategy" | "idea">("material");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      // Check file size (max 10MB)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "File size must be less than 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +58,28 @@ const CreatePost = () => {
     else if (postType === "idea") xpEarned = 20;
 
     try {
+      let fileUrl = null;
+
+      // Upload file if present
+      if (file) {
+        setUploading(true);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('post-files')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('post-files')
+          .getPublicUrl(fileName);
+
+        fileUrl = publicUrl;
+        setUploading(false);
+      }
+
       // Insert post
       const { error: postError } = await supabase
         .from("posts")
@@ -47,6 +91,7 @@ const CreatePost = () => {
           category,
           department: department || null,
           post_type: postType,
+          file_url: fileUrl,
         });
 
       if (postError) throw postError;
@@ -172,8 +217,45 @@ const CreatePost = () => {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Posting..." : "Share Post"}
+          <div className="space-y-2">
+            <Label htmlFor="file">Attach File (Optional)</Label>
+            <div className="flex items-center gap-4">
+              <Input
+                id="file"
+                type="file"
+                onChange={handleFileChange}
+                accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+                className="hidden"
+              />
+              <Label
+                htmlFor="file"
+                className="flex items-center gap-2 px-4 py-2 border border-border rounded-md cursor-pointer hover:bg-accent transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                {file ? "Change File" : "Upload File"}
+              </Label>
+              {file && (
+                <div className="flex items-center gap-2 flex-1 px-4 py-2 bg-surface border border-border rounded-md">
+                  <span className="text-sm truncate flex-1">{file.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveFile}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Supported: Images, PDF, Word, PowerPoint, Excel, Text (Max 10MB)
+            </p>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading || uploading}>
+            {loading ? "Posting..." : uploading ? "Uploading..." : "Share Post"}
           </Button>
         </form>
       </Card>
