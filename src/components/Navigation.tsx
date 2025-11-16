@@ -38,9 +38,6 @@ const Navigation = () => {
                   <Shield className="h-4 w-4" />
                   Admin Dashboard
                 </Link>
-                <Link to="/dashboard" className="text-foreground/80 hover:text-foreground transition-colors">
-                  Dashboard
-                </Link>
                 <Link to="/community" className="text-foreground/80 hover:text-foreground transition-colors">
                   Community
                 </Link>
@@ -106,9 +103,7 @@ const Navigation = () => {
                       <Shield className="h-4 w-4" />
                       Admin Dashboard
                     </Link>
-                    <Link to="/dashboard" className="text-lg">Dashboard</Link>
                     <Link to="/community" className="text-lg">Community</Link>
-                    <Link to="/profile" className="text-lg">Profile</Link>
                     <Button onClick={signOut} variant="outline" className="w-full">
                       Sign Out
                     </Button>
