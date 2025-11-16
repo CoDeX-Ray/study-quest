@@ -35,6 +35,7 @@ const App = () => (
               <Route path="/community" element={<Community />} />
               <Route path="/create-post" element={<CreatePost />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:userId" element={<Profile />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/bug-reports" element={<AdminBugReports />} />
               <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />

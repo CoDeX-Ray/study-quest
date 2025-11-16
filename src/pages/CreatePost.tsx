@@ -111,7 +111,7 @@ const CreatePost = () => {
           },
         });
 
-      // Update user XP
+      // Update user XP and recalculate level
       const { data: profile } = await supabase
         .from("profiles")
         .select("xp, level")
@@ -120,12 +120,15 @@ const CreatePost = () => {
 
       if (profile) {
         const newXP = profile.xp + xpEarned;
+        // Level calculation: Level 1 = 0-99 XP, Level 2 = 100-199 XP, etc.
         const newLevel = Math.floor(newXP / 100) + 1;
 
-        await supabase
+        const { error: updateError } = await supabase
           .from("profiles")
           .update({ xp: newXP, level: newLevel })
           .eq("id", user.id);
+
+        if (updateError) throw updateError;
       }
 
       toast({

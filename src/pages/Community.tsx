@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -515,15 +515,22 @@ const Community = () => {
                 {/* Post Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-game-green/50">
-                      <AvatarImage src={post.profiles?.avatar_url || undefined} />
-                      <AvatarFallback className="bg-surface-elevated">
-                        {post.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Link to={`/profile/${post.user_id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                      <Avatar className="h-10 w-10 border-2 border-game-green/50">
+                        <AvatarImage src={post.profiles?.avatar_url || undefined} />
+                        <AvatarFallback className="bg-surface-elevated">
+                          {post.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold">{post.profiles?.full_name || 'Unknown User'}</span>
+                        <Link 
+                          to={`/profile/${post.user_id}`}
+                          className="font-semibold hover:text-primary transition-colors cursor-pointer"
+                        >
+                          {post.profiles?.full_name || 'Unknown User'}
+                        </Link>
                         <Badge variant="outline" className="text-xs border-level-gold/50 text-level-gold">
                           Level {post.profiles?.level || 1}
                         </Badge>
@@ -655,14 +662,21 @@ const Community = () => {
                           <div className="space-y-3">
                             {comments[post.id]?.map((comment) => (
                               <div key={comment.id} className="flex gap-3 p-3 bg-surface rounded-lg">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={comment.profiles?.avatar_url || undefined} />
-                                  <AvatarFallback>
-                                    {comment.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
-                                  </AvatarFallback>
-                                </Avatar>
+                                <Link to={`/profile/${comment.user_id}`} className="cursor-pointer hover:opacity-80 transition-opacity">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={comment.profiles?.avatar_url || undefined} />
+                                    <AvatarFallback>
+                                      {comment.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </Link>
                                 <div className="flex-1">
-                                  <p className="text-sm font-semibold">{comment.profiles?.full_name || 'Unknown'}</p>
+                                  <Link 
+                                    to={`/profile/${comment.user_id}`}
+                                    className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer block"
+                                  >
+                                    {comment.profiles?.full_name || 'Unknown'}
+                                  </Link>
                                   <p className="text-sm text-muted-foreground">{comment.content}</p>
                                   <p className="text-xs text-muted-foreground mt-1">{getTimeAgo(comment.created_at)}</p>
                                 </div>
