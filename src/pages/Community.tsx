@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock } from "lucide-react";
+import { Plus, Search, Heart, MessageCircle, Share2, BookOpen, FileText, Video, Image as ImageIcon, Trash2, Ban, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ const Community = () => {
   const { isAdmin } = useIsAdmin();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedAction, setSelectedAction] = useState<{ type: string; postId?: string; userId?: string; userName?: string } | null>(null);
 
   const requireAuth = (action: () => void) => {
@@ -195,6 +197,13 @@ const Community = () => {
     return `${Math.floor(seconds / 86400)} days ago`;
   };
 
+  const filteredPosts = posts.filter(post => 
+    searchQuery === "" || 
+    post.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -217,27 +226,25 @@ const Community = () => {
           </Button>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {["All", "Mathematics", "Physics", "Chemistry", "Biology", "History"].map((filter) => (
-            <Button
-              key={filter}
-              variant={filter === "All" ? "default" : "outline"}
-              className={filter === "All" ? "bg-game-green hover:bg-game-green-dark" : "border-border/50 hover:border-game-green/50"}
-            >
-              {filter}
-            </Button>
-          ))}
+        {/* Category Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by subject, title, or content..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         {/* Posts Feed */}
         <div className="space-y-6">
-          {posts.length === 0 ? (
+          {filteredPosts.length === 0 ? (
             <Card className="p-12 bg-gradient-card border-border/50 text-center">
-              <p className="text-muted-foreground">No posts yet. Be the first to share!</p>
+              <p className="text-muted-foreground">No posts found. Try a different search.</p>
             </Card>
           ) : (
-            posts.map((post) => (
+            filteredPosts.map((post) => (
               <Card key={post.id} className="p-6 bg-gradient-card border-border/50 hover:border-game-green/30 transition-all duration-300">
                 {/* Post Header */}
                 <div className="flex items-start justify-between mb-4">
