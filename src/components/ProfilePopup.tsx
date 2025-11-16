@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trophy, Award, ExternalLink, LogIn } from "lucide-react";
 import XPBar from "@/components/XPBar";
+import { getNameColorClass, getBorderClass, getBorderStyle, getRainbowBorderWrapper } from "@/utils/profileStyles";
 
 interface Profile {
   id: string;
@@ -16,6 +17,8 @@ interface Profile {
   full_name: string;
   role: string;
   avatar_url: string | null;
+  name_color?: string | null;
+  border_style?: string | null;
 }
 
 interface Achievement {
@@ -136,13 +139,15 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
         ) : profile ? (
           <div className="space-y-6">
             {/* Profile Header */}
-            <Card className="p-6 bg-gradient-card border-border/50">
+            <Card className={`p-6 bg-gradient-card ${profile.border_style === "rainbow" ? "" : getBorderClass(profile.border_style)}`} style={profile.border_style === "rainbow" ? {} : getBorderStyle(profile.border_style)}>
               <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-game-green/20 flex items-center justify-center text-3xl">
-                  {profile.full_name?.[0] || "?"}
+                <div className={getRainbowBorderWrapper(profile.border_style)}>
+                  <div className={`w-20 h-20 rounded-full bg-game-green/20 flex items-center justify-center text-3xl ${profile.border_style === "rainbow" ? "" : getBorderClass(profile.border_style)}`} style={profile.border_style === "rainbow" ? {} : getBorderStyle(profile.border_style)}>
+                    {profile.full_name?.[0] || "?"}
+                  </div>
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                  <h2 className="text-2xl font-bold mb-2">{profile.full_name}</h2>
+                  <h2 className={`text-2xl font-bold mb-2 ${getNameColorClass(profile.name_color)}`}>{profile.full_name}</h2>
                   <div className="flex items-center gap-2 justify-center md:justify-start mb-4">
                     <Badge variant="secondary">{profile.role}</Badge>
                     <Badge variant="outline" className="border-level-gold/50 text-level-gold">

@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ProfilePopup from "@/components/ProfilePopup";
+import { getNameColorClass, getBorderClass, getBorderStyle, getRainbowBorderWrapper } from "@/utils/profileStyles";
 
 import {
   AlertDialog,
@@ -42,6 +43,8 @@ interface Post {
     avatar_url: string | null;
     level: number;
     status: string;
+    name_color?: string | null;
+    border_style?: string | null;
   };
   likes_count?: number;
   comments_count?: number;
@@ -56,6 +59,8 @@ interface Comment {
   profiles: {
     full_name: string;
     avatar_url: string | null;
+    name_color?: string | null;
+    border_style?: string | null;
   };
 }
 
@@ -113,7 +118,7 @@ const Community = () => {
         const [profileResult, likesResult, commentsResult] = await Promise.all([
           supabase
             .from("profiles")
-            .select("full_name, avatar_url, level, status")
+            .select("full_name, avatar_url, level, status, name_color, border_style")
             .eq("id", post.user_id)
             .single(),
           supabase
@@ -126,7 +131,7 @@ const Community = () => {
             .eq("post_id", post.id),
         ]);
 
-        const profile = profileResult.data || { full_name: "Unknown User", avatar_url: null, level: 1, status: "active" };
+        const profile = profileResult.data || { full_name: "Unknown User", avatar_url: null, level: 1, status: "active", name_color: null, border_style: null };
         // Handle case where table doesn't exist yet - return empty array
         const likes = (likesResult.error && likesResult.error.code === 'PGRST116') ? [] : (likesResult.data || []);
         const comments = commentsResult.data || [];
@@ -167,13 +172,13 @@ const Community = () => {
       (data || []).map(async (comment) => {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name, avatar_url")
+          .select("full_name, avatar_url, name_color, border_style")
           .eq("id", comment.user_id)
           .single();
 
         return {
           ...comment,
-          profiles: profile || { full_name: "Unknown User", avatar_url: null },
+          profiles: profile || { full_name: "Unknown User", avatar_url: null, name_color: null, border_style: null },
         };
       })
     );
@@ -587,11 +592,14 @@ const Community = () => {
                   <div className="flex items-center gap-3">
                     <div 
                       onClick={(e) => handleProfileClick(post.user_id, e)}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      className={`cursor-pointer hover:opacity-80 transition-opacity ${getRainbowBorderWrapper(post.profiles?.border_style)}`}
                     >
-                      <Avatar className="h-10 w-10 border-2 border-game-green/50">
+                      <Avatar 
+                        className={`h-10 w-10 ${post.profiles?.border_style === "rainbow" ? "rounded-full" : getBorderClass(post.profiles?.border_style)}`}
+                        style={post.profiles?.border_style === "rainbow" ? {} : getBorderStyle(post.profiles?.border_style)}
+                      >
                         <AvatarImage src={post.profiles?.avatar_url || undefined} />
-                        <AvatarFallback className="bg-surface-elevated">
+                        <AvatarFallback className={`bg-surface-elevated ${post.profiles?.border_style === "rainbow" ? "rounded-full" : ""}`}>
                           {post.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                         </AvatarFallback>
                       </Avatar>
@@ -600,7 +608,7 @@ const Community = () => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span 
                           onClick={(e) => handleProfileClick(post.user_id, e)}
-                          className="font-semibold hover:text-primary transition-colors cursor-pointer"
+                          className={`font-semibold hover:text-primary transition-colors cursor-pointer ${getNameColorClass(post.profiles?.name_color)}`}
                         >
                           {post.profiles?.full_name || 'Unknown User'}
                         </span>
@@ -737,11 +745,14 @@ const Community = () => {
                               <div key={comment.id} className="flex gap-3 p-3 bg-surface rounded-lg">
                                 <div 
                                   onClick={(e) => handleProfileClick(comment.user_id, e)}
-                                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                                  className={`cursor-pointer hover:opacity-80 transition-opacity ${getRainbowBorderWrapper(comment.profiles?.border_style)}`}
                                 >
-                                  <Avatar className="h-8 w-8">
+                                  <Avatar 
+                                    className={`h-8 w-8 ${comment.profiles?.border_style === "rainbow" ? "rounded-full" : getBorderClass(comment.profiles?.border_style)}`}
+                                    style={comment.profiles?.border_style === "rainbow" ? {} : getBorderStyle(comment.profiles?.border_style)}
+                                  >
                                     <AvatarImage src={comment.profiles?.avatar_url || undefined} />
-                                    <AvatarFallback>
+                                    <AvatarFallback className={comment.profiles?.border_style === "rainbow" ? "rounded-full" : ""}>
                                       {comment.profiles?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                                     </AvatarFallback>
                                   </Avatar>
@@ -751,7 +762,7 @@ const Community = () => {
                                     <div className="flex-1">
                                       <span 
                                         onClick={(e) => handleProfileClick(comment.user_id, e)}
-                                        className="text-sm font-semibold hover:text-primary transition-colors cursor-pointer block"
+                                        className={`text-sm font-semibold hover:text-primary transition-colors cursor-pointer block ${getNameColorClass(comment.profiles?.name_color)}`}
                                       >
                                         {comment.profiles?.full_name || 'Unknown'}
                                       </span>
