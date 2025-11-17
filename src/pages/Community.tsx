@@ -14,47 +14,16 @@ import {
   Send,
   Sparkles,
   Users,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 import ProfilePopup from "@/components/ProfilePopup";
-
-interface ProfileSummary {
-  id: string;
-  full_name: string | null;
-}
-
-interface PostLike {
-  post_id: string;
-  user_id: string;
-}
-
-interface PostComment {
-  id: string;
-  post_id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  author: {
-    full_name: string | null;
-  } | null;
-}
-
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  subject: string;
-  category: string;
-  department: string | null;
-  created_at: string;
-  is_announcement: boolean;
-  user_id: string;
-  profiles: ProfileSummary | null;
-  post_likes: PostLike[];
-  post_comments: PostComment[];
-}
+import AttachmentPreview from "@/components/AttachmentPreview";
+import { loadPostsWithRelations } from "@/utils/communityFeed";
+import { Post, ProfileSummary } from "@/types/community";
 
 const Community = () => {
   const { user } = useAuth();
@@ -70,74 +39,14 @@ const Community = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
   const [likeAnimations, setLikeAnimations] = useState<Record<string, boolean>>({});
+  const [shareLoading, setShareLoading] = useState<Record<string, boolean>>({});
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [commentDeleting, setCommentDeleting] = useState<Record<string, boolean>>({});
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: postsData, error: postsError } = await supabase
-        .from("posts")
-        .select("id, title, content, subject, category, department, created_at, is_announcement, user_id")
-        .order("created_at", { ascending: false });
-
-      if (postsError) throw postsError;
-
-      if (!postsData || postsData.length === 0) {
-        setPosts([]);
-        return;
-      }
-
-      const postIds = postsData.map((post) => post.id);
-
-      const [likesResult, commentsResult] = await Promise.all([
-        supabase
-          .from("post_likes")
-          .select("post_id, user_id")
-          .in("post_id", postIds),
-        supabase
-          .from("post_comments")
-          .select("id, post_id, user_id, content, created_at")
-          .in("post_id", postIds)
-          .order("created_at", { ascending: true }),
-      ]);
-
-      if (likesResult.error) throw likesResult.error;
-      if (commentsResult.error) throw commentsResult.error;
-
-      const commentAuthorIds = (commentsResult.data || []).map((comment) => comment.user_id);
-      const authorIds = Array.from(
-        new Set([
-          ...postsData.map((post) => post.user_id),
-          ...commentAuthorIds,
-        ])
-      );
-
-      let profilesData: ProfileSummary[] = [];
-      if (authorIds.length) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", authorIds);
-
-        if (profilesError) throw profilesError;
-        profilesData = profiles || [];
-      }
-
-      const profileMap = new Map<string, ProfileSummary>(
-        profilesData.map((profile) => [profile.id, profile])
-      );
-
-      const postsWithRelations: Post[] = postsData.map((post) => ({
-        ...post,
-        profiles: profileMap.get(post.user_id) || null,
-        post_likes: (likesResult.data || []).filter((like) => like.post_id === post.id),
-        post_comments: (commentsResult.data || [])
-          .filter((comment) => comment.post_id === post.id)
-          .map((comment) => ({
-            ...comment,
-            author: profileMap.get(comment.user_id) || null,
-          })),
-      }));
-
+      const postsWithRelations = await loadPostsWithRelations();
       setPosts(postsWithRelations);
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -189,6 +98,20 @@ const Community = () => {
     if (!post) return;
 
     const hasLiked = post.post_likes.some((like) => like.user_id === user.id);
+    const previousPosts = posts;
+
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        const updatedLikes = hasLiked
+          ? p.post_likes.filter((like) => like.user_id !== user.id)
+          : [...p.post_likes, { post_id: postId, user_id: user.id }];
+        if (!hasLiked) {
+          triggerLikeAnimation(postId);
+        }
+        return { ...p, post_likes: updatedLikes };
+      })
+    );
 
     try {
       if (hasLiked) {
@@ -208,8 +131,6 @@ const Community = () => {
           .from("post_likes")
           .insert({ post_id: postId, user_id: user.id });
 
-        triggerLikeAnimation(postId);
-
         await supabase.from("activity_logs").insert({
           user_id: user.id,
           action: "Liked post",
@@ -227,10 +148,10 @@ const Community = () => {
         }
       }
 
-      await fetchPosts();
     } catch (error) {
       console.error("Error toggling like:", error);
       toast.error("Failed to update like");
+      setPosts(previousPosts);
     }
   };
 
@@ -311,43 +232,54 @@ const Community = () => {
         ? `${window.location.origin}/community#post-${post.id}`
         : `/community#post-${post.id}`;
 
+    setShareLoading((prev) => ({ ...prev, [post.id]: true }));
+
     try {
+      let shareMethod: "native" | "copy" | null = null;
+
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({
           title: post.title,
           text: post.content.slice(0, 120),
           url: shareUrl,
         });
-        toast.success("Post shared successfully");
+        shareMethod = "native";
       } else if (
         typeof navigator !== "undefined" &&
         navigator.clipboard?.writeText
       ) {
         await navigator.clipboard.writeText(shareUrl);
-        toast.success("Post link copied to clipboard");
+        shareMethod = "copy";
       } else {
         toast.error("Sharing is not supported in this browser");
         return;
       }
 
-      await supabase.from("activity_logs").insert({
-        user_id: user.id,
-        action: "Shared post",
-        details: {
-          post_id: post.id,
-          post_title: post.title,
-          share_url: shareUrl,
-        },
-      });
+      await Promise.all([
+        supabase.from("activity_logs").insert({
+          user_id: user.id,
+          action: "Shared post",
+          details: {
+            post_id: post.id,
+            post_title: post.title,
+            share_url: shareUrl,
+          },
+        }),
+        post.user_id !== user.id
+          ? supabase.from("notifications").insert({
+              user_id: post.user_id,
+              title: `${currentProfile?.full_name || "Someone"} shared your post`,
+              message: `${post.title} was shared with others.`,
+              type: "share",
+              related_post_id: post.id,
+            })
+          : Promise.resolve(),
+      ]);
 
-      if (post.user_id !== user.id) {
-        await supabase.from("notifications").insert({
-          user_id: post.user_id,
-          title: `${currentProfile?.full_name || "Someone"} shared your post`,
-          message: `${post.title} was shared with others.`,
-          type: "share",
-          related_post_id: post.id,
-        });
+      if (shareMethod === "native") {
+        toast.success("Post shared successfully");
+      } else if (shareMethod === "copy") {
+        toast.success("Post link copied to clipboard");
       }
     } catch (error: any) {
       if (error?.name === "AbortError") {
@@ -355,11 +287,18 @@ const Community = () => {
       }
       console.error("Error sharing post:", error);
       toast.error("Unable to share post");
+    } finally {
+      setShareLoading((prev) => {
+        const next = { ...prev };
+        delete next[post.id];
+        return next;
+      });
     }
   };
 
   const triggerLikeAnimation = (postId: string) => {
     setLikeAnimations((prev) => ({ ...prev, [postId]: true }));
+    if (typeof window === "undefined") return;
     window.setTimeout(() => {
       setLikeAnimations((prev) => {
         const nextState = { ...prev };
@@ -387,6 +326,122 @@ const Community = () => {
     document
       .getElementById("community-posts")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const getStoragePathFromUrl = (url: string | null) => {
+    if (!url) return null;
+    const parts = url.split("/post-files/");
+    if (parts.length < 2) return null;
+    return parts[1];
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!user) {
+      redirectToAuth("Please sign in to delete posts");
+      return;
+    }
+
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    if (post.user_id !== user.id && !isAdmin) {
+      toast.error("You can only delete your own posts");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm("Delete this post? This cannot be undone.")) {
+      return;
+    }
+
+    const previousPosts = posts;
+    setDeletingPostId(postId);
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+
+    try {
+      await Promise.all([
+        supabase.from("post_comments").delete().eq("post_id", postId),
+        supabase.from("post_likes").delete().eq("post_id", postId),
+      ]);
+
+      await supabase.from("posts").delete().eq("id", postId);
+
+      const storagePath = getStoragePathFromUrl(post.file_url);
+      if (storagePath) {
+        await supabase.storage.from("post-files").remove([storagePath]).catch(() => null);
+      }
+
+      await supabase.from("activity_logs").insert({
+        user_id: user.id,
+        action: "Deleted post",
+        details: { post_id: postId, post_title: post.title },
+      });
+
+      toast.success("Post deleted");
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast.error("Unable to delete post");
+      setPosts(previousPosts);
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!user) {
+      redirectToAuth("Please sign in to delete comments");
+      return;
+    }
+
+    const post = posts.find((p) => p.id === postId);
+    const comment = post?.post_comments.find((c) => c.id === commentId);
+
+    if (!post || !comment) return;
+
+    if (
+      comment.user_id !== user.id &&
+      post.user_id !== user.id &&
+      !isAdmin
+    ) {
+      toast.error("You can only delete your own comments");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm("Delete this comment?")) {
+      return;
+    }
+
+    const previousPosts = posts;
+    setCommentDeleting((prev) => ({ ...prev, [commentId]: true }));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              post_comments: p.post_comments.filter((c) => c.id !== commentId),
+            }
+          : p
+      )
+    );
+
+    try {
+      await supabase.from("post_comments").delete().eq("id", commentId);
+      await supabase.from("activity_logs").insert({
+        user_id: user.id,
+        action: "Deleted comment",
+        details: { post_id: postId, comment_id: commentId },
+      });
+      toast.success("Comment deleted");
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Unable to delete comment");
+      setPosts(previousPosts);
+    } finally {
+      setCommentDeleting((prev) => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+    }
   };
 
   const totalLikes = posts.reduce((sum, post) => sum + post.post_likes.length, 0);
@@ -570,14 +625,35 @@ const Community = () => {
                         Posted by {post.profiles?.full_name || "Unknown"}
                       </button>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(post.created_at).toLocaleString()}
-                    </p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{new Date(post.created_at).toLocaleString()}</span>
+                      {(user?.id === post.user_id || isAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeletePost(post.id)}
+                          disabled={deletingPostId === post.id}
+                          aria-label="Delete post"
+                        >
+                          {deletingPostId === post.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-foreground/80 leading-relaxed whitespace-pre-line">
                     {post.content}
                   </p>
+
+                  {post.file_url && (
+                    <AttachmentPreview fileUrl={post.file_url} contextTitle={post.title} />
+                  )}
 
                   <div className="flex flex-wrap gap-3 items-center">
                     <Button
@@ -619,9 +695,14 @@ const Community = () => {
                       type="button"
                       className="gap-2 rounded-full px-4 text-muted-foreground hover:text-foreground"
                       onClick={() => handleShare(post)}
+                      disabled={shareLoading[post.id]}
                     >
-                      <Share2 className="h-4 w-4" />
-                      Share
+                      {shareLoading[post.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Share2 className="h-4 w-4" />
+                      )}
+                      {shareLoading[post.id] ? "Sharing..." : "Share"}
                     </Button>
                   </div>
 
@@ -640,9 +721,27 @@ const Community = () => {
                             >
                               <div className="flex items-center justify-between text-sm font-semibold">
                                 <span>{comment.author?.full_name || "Unknown"}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(comment.created_at).toLocaleString()}
-                                </span>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{new Date(comment.created_at).toLocaleString()}</span>
+                                  {(comment.user_id === user?.id ||
+                                    post.user_id === user?.id ||
+                                    isAdmin) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-muted-foreground hover:text-destructive"
+                                      onClick={() => handleDeleteComment(post.id, comment.id)}
+                                      disabled={!!commentDeleting[comment.id]}
+                                      aria-label="Delete comment"
+                                    >
+                                      {commentDeleting[comment.id] ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-foreground/80 mt-1">
                                 {comment.content}
