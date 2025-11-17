@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trophy, Award, ExternalLink, LogIn } from "lucide-react";
+import { Trophy, Award, ExternalLink } from "lucide-react";
 import XPBar from "@/components/XPBar";
 import { getNameColorClass, getBorderClass, getBorderStyle, getRainbowBorderWrapper } from "@/utils/profileStyles";
 
@@ -43,21 +43,7 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Require authentication to view profiles
-    if (open && !authLoading && !user) {
-      onOpenChange(false);
-      navigate("/auth");
-      return;
-    }
-
-    if (open && userId && user) {
-      fetchProfile();
-      fetchAchievements();
-    }
-  }, [open, userId, user, authLoading, navigate, onOpenChange]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!userId) return;
     
     setLoading(true);
@@ -69,9 +55,9 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
     
     if (data) setProfile(data);
     setLoading(false);
-  };
+  }, [userId]);
 
-  const fetchAchievements = async () => {
+  const fetchAchievements = useCallback(async () => {
     if (!userId) return;
 
     const { data: allAchievements } = await supabase
@@ -88,7 +74,14 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
     if (userAchievements) {
       setUnlockedAchievements(userAchievements.map(a => a.achievement_id));
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (open && userId) {
+      fetchProfile();
+      fetchAchievements();
+    }
+  }, [open, userId, fetchProfile, fetchAchievements]);
 
   const handleViewFullProfile = () => {
     if (userId) {
@@ -98,34 +91,6 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
   };
 
   if (!userId) return null;
-
-  // Show login prompt if not authenticated
-  if (!authLoading && !user) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Authentication Required</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-muted-foreground">
-              Please sign in to view user profiles.
-            </p>
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                navigate("/auth");
-              }}
-              className="w-full bg-game-green hover:bg-game-green-dark"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              Sign In
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,11 +183,17 @@ const ProfilePopup = ({ userId, open, onOpenChange }: ProfilePopupProps) => {
 
             {/* View Full Profile Button */}
             <Button
-              onClick={handleViewFullProfile}
+              onClick={() => {
+                if (!user) {
+                  navigate("/auth");
+                  return;
+                }
+                handleViewFullProfile();
+              }}
               className="w-full bg-game-green hover:bg-game-green-dark"
             >
               <ExternalLink className="w-4 h-4 mr-2" />
-              View Full Profile
+              {user ? "View Full Profile" : "Sign in to view full profile"}
             </Button>
           </div>
         ) : (

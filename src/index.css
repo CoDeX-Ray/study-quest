@@ -158,3 +158,158 @@ All colors MUST be HSL.
     box-shadow: 0 0 30px hsl(var(--game-green) / 0.5);
   }
 }
+
+@layer base {
+  .community-shell {
+    position: relative;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 15%, hsl(var(--primary) / 0.15), transparent 45%),
+      radial-gradient(circle at 85% 0%, hsl(var(--accent) / 0.12), transparent 40%),
+      radial-gradient(circle at 10% 80%, hsl(var(--secondary) / 0.08), transparent 50%),
+      hsl(var(--background));
+    overflow: hidden;
+  }
+
+  .community-halo {
+    position: absolute;
+    width: 60vw;
+    max-width: 720px;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    filter: blur(90px);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .community-halo-one {
+    top: -20%;
+    left: -10%;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.35), transparent 60%);
+  }
+
+  .community-halo-two {
+    bottom: -25%;
+    right: -5%;
+    background: radial-gradient(circle, hsl(var(--accent) / 0.28), transparent 55%);
+  }
+
+  .community-panel {
+    background: linear-gradient(140deg, hsl(var(--card) / 0.95), hsl(var(--surface-overlay) / 0.85));
+    border: 1px solid hsl(var(--border) / 0.35);
+    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-card);
+  }
+
+  .community-stat-card {
+    border: 1px solid hsl(var(--border) / 0.3);
+    background: hsl(var(--card) / 0.92);
+    backdrop-filter: blur(12px);
+  }
+
+  .community-card {
+    border: 1px solid hsl(var(--border) / 0.35);
+    background: linear-gradient(150deg, hsl(var(--card) / 0.95), hsl(var(--surface-elevated) / 0.85));
+    backdrop-filter: blur(22px);
+  }
+
+  .community-card-glow {
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.25), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .community-card:hover .community-card-glow {
+    opacity: 0.35;
+  }
+
+  .announcement-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+  }
+
+  .community-chip {
+    border-color: hsl(var(--border) / 0.4) !important;
+    background-color: hsl(var(--background) / 0.6);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .community-comments {
+    border-top: 1px solid hsl(var(--border) / 0.5);
+    padding-top: 1.5rem;
+  }
+
+  .like-spark {
+    position: absolute;
+    right: 0.65rem;
+    top: -0.45rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: hsl(var(--primary));
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .like-spark-active {
+    animation: likeSpark 0.7s ease forwards;
+  }
+
+  .like-pop {
+    animation: likePop 0.5s var(--transition-bounce);
+  }
+
+  .animate-gradient-slow {
+    animation: gradientShift 18s ease-in-out infinite;
+  }
+}
+
+@keyframes gradientShift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes likePop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes likeSpark {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(1.05);
+  }
+}
