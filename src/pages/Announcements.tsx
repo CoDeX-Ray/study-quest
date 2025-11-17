@@ -11,6 +11,7 @@ import {
   ThumbsUp,
   Send,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import { Post, ProfileSummary } from "@/types/community";
 import { loadPostsWithRelations } from "@/utils/communityFeed";
 import AttachmentPreview from "@/components/AttachmentPreview";
 import ProfilePopup from "@/components/ProfilePopup";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const PAGE_SIZE = 6;
 
@@ -28,6 +30,7 @@ const generateTempId = () =>
 
 const Announcements = () => {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,8 @@ const Announcements = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<ProfileSummary | null>(null);
+  const [commentDeleting, setCommentDeleting] = useState<Record<string, boolean>>({});
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [fetchingMore, setFetchingMore] = useState(false);
 
@@ -158,6 +163,17 @@ const Announcements = () => {
           .eq("user_id", user.id);
       } else {
         await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
+
+        // Notify admin owner if different user
+        if (post.user_id !== user.id) {
+          await supabase.from("notifications").insert({
+            user_id: post.user_id,
+            title: `${currentProfile?.full_name || "Someone"} liked your announcement`,
+            message: `${post.title} received a new like.`,
+            type: "announcement_like",
+            related_post_id: post.id,
+          });
+        }
       }
     } catch (error) {
       console.error("Error toggling like:", error);
@@ -196,6 +212,9 @@ const Announcements = () => {
     setCommentLoading((prev) => ({ ...prev, [postId]: true }));
 
     try {
+      const post = announcements.find((p) => p.id === postId);
+      if (!post) return;
+
       const { data: insertedComment, error: insertError } = await supabase
         .from("post_comments")
         .insert({
@@ -230,6 +249,16 @@ const Announcements = () => {
             : announcement
         )
       );
+
+      if (post.user_id !== user.id) {
+        await supabase.from("notifications").insert({
+          user_id: post.user_id,
+          title: `${currentProfile?.full_name || "Someone"} commented on your announcement`,
+          message: content.length > 80 ? `${content.slice(0, 80)}...` : content,
+          type: "announcement_comment",
+          related_post_id: postId,
+        });
+      }
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error("Unable to post comment");
@@ -265,6 +294,94 @@ const Announcements = () => {
       } else {
         toast.error("Sharing is not supported");
       }
+
+      if (post.user_id !== user.id) {
+        await supabase.from("notifications").insert({
+          user_id: post.user_id,
+          title: `${currentProfile?.full_name || "Someone"} shared your announcement`,
+          message: `${post.title} was shared with others.`,
+          type: "announcement_share",
+          related_post_id: post.id,
+        });
+      }
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!user) {
+      redirectToAuth("Please sign in to delete comments");
+      return;
+    }
+
+    const announcement = announcements.find((a) => a.id === postId);
+    const comment = announcement?.post_comments.find((c) => c.id === commentId);
+    if (!announcement || !comment) return;
+
+    if (
+      comment.user_id !== user.id &&
+      announcement.user_id !== user.id &&
+      !isAdmin
+    ) {
+      toast.error("You can only delete your own comments");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm("Delete this comment?")) {
+      return;
+    }
+
+    const previousState = announcements;
+    setCommentDeleting((prev) => ({ ...prev, [commentId]: true }));
+    setAnnouncements((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              post_comments: post.post_comments.filter((c) => c.id !== commentId),
+            }
+          : post
+      )
+    );
+
+    try {
+      await supabase.from("post_comments").delete().eq("id", commentId);
+      toast.success("Comment deleted");
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Unable to delete comment");
+      setAnnouncements(previousState);
+    } finally {
+      setCommentDeleting((prev) => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteAnnouncement = async (postId: string) => {
+    if (!user || !isAdmin) {
+      toast.error("Only admins can delete announcements");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm("Delete this announcement?")) {
+      return;
+    }
+
+    const previousState = announcements;
+    setDeletingPostId(postId);
+    setAnnouncements((prev) => prev.filter((post) => post.id !== postId));
+
+    try {
+      await supabase.from("posts").delete().eq("id", postId);
+      toast.success("Announcement removed");
+    } catch (error) {
+      console.error("Error deleting announcement:", error);
+      toast.error("Unable to delete announcement");
+      setAnnouncements(previousState);
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
     } catch (error: any) {
       if (error?.name !== "AbortError") {
         console.error("Error sharing announcement:", error);
@@ -335,24 +452,40 @@ const Announcements = () => {
               >
                 <div className="community-card-glow" />
                 <div className="relative z-10 space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.35em] text-primary/70">
-                        Announcement
-                      </p>
-                      <h2 className="text-2xl font-semibold">{announcement.title}</h2>
-                      <button
-                        type="button"
-                        onClick={() => handleProfileView(announcement.user_id)}
-                        className="text-sm text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {announcement.profiles?.full_name || "Admin"}
-                      </button>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-primary/70">
+                          Announcement
+                        </p>
+                        <h2 className="text-2xl font-semibold">{announcement.title}</h2>
+                        <button
+                          type="button"
+                          onClick={() => handleProfileView(announcement.user_id)}
+                          className="text-sm text-primary hover:text-primary/80 transition-colors"
+                        >
+                          {announcement.profiles?.full_name || "Admin"}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{new Date(announcement.created_at).toLocaleString()}</span>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteAnnouncement(announcement.id)}
+                            disabled={deletingPostId === announcement.id}
+                            aria-label="Delete announcement"
+                          >
+                            {deletingPostId === announcement.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(announcement.created_at).toLocaleString()}
-                    </p>
-                  </div>
 
                   <p className="text-foreground/80 whitespace-pre-line leading-relaxed">
                     {announcement.content}
@@ -362,6 +495,10 @@ const Announcements = () => {
                     <AttachmentPreview
                       fileUrl={announcement.file_url}
                       contextTitle={announcement.title}
+                      isAccessible={!!user}
+                      onRequestAccess={() =>
+                        redirectToAuth("Please sign in to view and download attachments")
+                      }
                     />
                   )}
 
@@ -435,9 +572,29 @@ const Announcements = () => {
                             >
                               <div className="flex items-center justify-between text-sm font-semibold">
                                 <span>{comment.author?.full_name || "Unknown"}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(comment.created_at).toLocaleString()}
-                                </span>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{new Date(comment.created_at).toLocaleString()}</span>
+                                  {(comment.user_id === user?.id ||
+                                    announcement.user_id === user?.id ||
+                                    isAdmin) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-muted-foreground hover:text-destructive"
+                                      onClick={() =>
+                                        handleDeleteComment(announcement.id, comment.id)
+                                      }
+                                      disabled={!!commentDeleting[comment.id]}
+                                      aria-label="Delete comment"
+                                    >
+                                      {commentDeleting[comment.id] ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-foreground/80 mt-1">
                                 {comment.content}

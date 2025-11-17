@@ -64,6 +64,7 @@ const Community = () => {
         const postsWithRelations = await loadPostsWithRelations({
           from: offset,
           limit: PAGE_SIZE,
+          excludeAnnouncements: true,
         });
         setPosts((prev) => {
           if (isInitial) {
@@ -714,7 +715,14 @@ const Community = () => {
                   </p>
 
                   {post.file_url && (
-                    <AttachmentPreview fileUrl={post.file_url} contextTitle={post.title} />
+                    <AttachmentPreview
+                      fileUrl={post.file_url}
+                      contextTitle={post.title}
+                      isAccessible={!!user}
+                      onRequestAccess={() =>
+                        redirectToAuth("Please sign in to view and download attachments")
+                      }
+                    />
                   )}
 
                   <div className="flex flex-wrap gap-3 items-center">

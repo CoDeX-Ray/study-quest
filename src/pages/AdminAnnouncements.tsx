@@ -335,7 +335,7 @@ const AdminAnnouncements = () => {
                   className="text-primary"
                   asChild
                 >
-                  <a href={`/community#post-${announcement.id}`}>View in community</a>
+                  <a href={`/announcements#post-${announcement.id}`}>View announcement</a>
                 </Button>
               </Card>
             ))}

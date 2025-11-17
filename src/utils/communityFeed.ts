@@ -3,6 +3,7 @@ import { Post, ProfileSummary } from "@/types/community";
 
 interface LoadPostsOptions {
   announcementsOnly?: boolean;
+  excludeAnnouncements?: boolean;
   from?: number;
   limit?: number;
 }
@@ -14,6 +15,7 @@ export const loadPostsWithRelations = async (
 ): Promise<Post[]> => {
   const {
     announcementsOnly,
+    excludeAnnouncements,
     from = 0,
     limit = DEFAULT_LIMIT,
   } = options;
@@ -30,6 +32,8 @@ export const loadPostsWithRelations = async (
 
   if (announcementsOnly) {
     query = query.eq("is_announcement", true);
+  } else if (excludeAnnouncements) {
+    query = query.eq("is_announcement", false);
   }
 
   const { data: postsData, error: postsError } = await query;
