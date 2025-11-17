@@ -14,10 +14,17 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Post } from "@/types/community";
+import { Post, ProfileSummary } from "@/types/community";
 import { loadPostsWithRelations } from "@/utils/communityFeed";
 import AttachmentPreview from "@/components/AttachmentPreview";
 import ProfilePopup from "@/components/ProfilePopup";
+
+const PAGE_SIZE = 6;
+
+const generateTempId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -31,23 +38,74 @@ const Announcements = () => {
   const [likeAnimations, setLikeAnimations] = useState<Record<string, boolean>>({});
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState<ProfileSummary | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
 
-  const fetchAnnouncements = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await loadPostsWithRelations({ announcementsOnly: true });
-      setAnnouncements(data);
-    } catch (error) {
-      console.error("Error fetching announcements:", error);
-      toast.error("Failed to load announcements");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchAnnouncements = useCallback(
+    async ({ offset = 0, replace = false }: { offset?: number; replace?: boolean } = {}) => {
+      const isInitial = offset === 0 || replace;
+      if (isInitial) {
+        setLoading(true);
+      } else {
+        setFetchingMore(true);
+      }
+      try {
+        const data = await loadPostsWithRelations({
+          announcementsOnly: true,
+          from: offset,
+          limit: PAGE_SIZE,
+        });
+        setAnnouncements((prev) => {
+          if (isInitial) return data;
+          const existingIds = new Set(prev.map((item) => item.id));
+          const merged = [...prev];
+          data.forEach((item) => {
+            if (!existingIds.has(item.id)) {
+              merged.push(item);
+            }
+          });
+          return merged;
+        });
+        setHasMore(data.length === PAGE_SIZE);
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+        toast.error("Failed to load announcements");
+      } finally {
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setFetchingMore(false);
+        }
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    fetchAnnouncements();
+    fetchAnnouncements({ replace: true });
   }, [fetchAnnouncements]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setCurrentProfile(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        setCurrentProfile(data);
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
 
   const redirectToAuth = (message: string) => {
     toast.error(message);
@@ -138,15 +196,40 @@ const Announcements = () => {
     setCommentLoading((prev) => ({ ...prev, [postId]: true }));
 
     try {
-      await supabase.from("post_comments").insert({
-        post_id: postId,
-        user_id: user.id,
-        content,
-      });
+      const { data: insertedComment, error: insertError } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          content,
+        })
+        .select("id, created_at")
+        .single();
+
+      if (insertError) throw insertError;
 
       toast.success("Comment added");
       setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
-      fetchAnnouncements();
+      setAnnouncements((prev) =>
+        prev.map((announcement) =>
+          announcement.id === postId
+            ? {
+                ...announcement,
+                post_comments: [
+                  ...announcement.post_comments,
+                  {
+                    id: insertedComment?.id || generateTempId(),
+                    post_id: postId,
+                    user_id: user.id,
+                    content,
+                    created_at: insertedComment?.created_at || new Date().toISOString(),
+                    author: currentProfile,
+                  },
+                ],
+              }
+            : announcement
+        )
+      );
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error("Unable to post comment");
@@ -400,6 +483,25 @@ const Announcements = () => {
                 Check back later or enable notifications to stay updated.
               </p>
             </Card>
+          )}
+          {announcements.length > 0 && hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => fetchAnnouncements({ offset: announcements.length })}
+                disabled={fetchingMore}
+              >
+                {fetchingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  "Load more announcements"
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </div>

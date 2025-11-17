@@ -25,6 +25,13 @@ import AttachmentPreview from "@/components/AttachmentPreview";
 import { loadPostsWithRelations } from "@/utils/communityFeed";
 import { Post, ProfileSummary } from "@/types/community";
 
+const PAGE_SIZE = 8;
+
+const generateTempId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 const Community = () => {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
@@ -42,22 +49,52 @@ const Community = () => {
   const [shareLoading, setShareLoading] = useState<Record<string, boolean>>({});
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [commentDeleting, setCommentDeleting] = useState<Record<string, boolean>>({});
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const postsWithRelations = await loadPostsWithRelations();
-      setPosts(postsWithRelations);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-      toast.error("Failed to load posts");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchPosts = useCallback(
+    async ({ offset = 0, replace = false }: { offset?: number; replace?: boolean } = {}) => {
+      const isInitial = offset === 0 || replace;
+      if (isInitial) {
+        setLoading(true);
+      } else {
+        setFetchingMore(true);
+      }
+      try {
+        const postsWithRelations = await loadPostsWithRelations({
+          from: offset,
+          limit: PAGE_SIZE,
+        });
+        setPosts((prev) => {
+          if (isInitial) {
+            return postsWithRelations;
+          }
+          const existingIds = new Set(prev.map((post) => post.id));
+          const merged = [...prev];
+          postsWithRelations.forEach((post) => {
+            if (!existingIds.has(post.id)) {
+              merged.push(post);
+            }
+          });
+          return merged;
+        });
+        setHasMorePosts(postsWithRelations.length === PAGE_SIZE);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        toast.error("Failed to load posts");
+      } finally {
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setFetchingMore(false);
+        }
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    fetchPosts();
+    fetchPosts({ replace: true });
   }, [fetchPosts, user?.id]);
 
   useEffect(() => {
@@ -185,11 +222,17 @@ const Community = () => {
     setCommentLoading((prev) => ({ ...prev, [postId]: true }));
 
     try {
-      await supabase.from("post_comments").insert({
-        post_id: postId,
-        user_id: user.id,
-        content,
-      });
+      const { data: insertedComment, error: insertError } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          content,
+        })
+        .select("id, created_at")
+        .single();
+
+      if (insertError) throw insertError;
 
       await supabase.from("activity_logs").insert({
         user_id: user.id,
@@ -212,7 +255,26 @@ const Community = () => {
 
       toast.success("Comment posted");
       setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
-      await fetchPosts();
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                post_comments: [
+                  ...p.post_comments,
+                  {
+                    id: insertedComment?.id || generateTempId(),
+                    post_id: postId,
+                    user_id: user.id,
+                    content,
+                    created_at: insertedComment?.created_at || new Date().toISOString(),
+                    author: currentProfile,
+                  },
+                ],
+              }
+            : p
+        )
+      );
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error("Failed to post comment");
@@ -784,6 +846,25 @@ const Community = () => {
               <p className="text-lg font-semibold">No posts found</p>
               <p className="text-muted-foreground">Try adjusting your search terms.</p>
             </Card>
+          )}
+          {filteredPosts.length > 0 && hasMorePosts && searchQuery.trim() === "" && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => fetchPosts({ offset: posts.length })}
+                disabled={fetchingMore}
+              >
+                {fetchingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  "Load more posts"
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </div>

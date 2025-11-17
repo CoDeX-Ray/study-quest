@@ -11,8 +11,6 @@ import { loadPostsWithRelations } from "@/utils/communityFeed";
 import AttachmentPreview from "@/components/AttachmentPreview";
 import { Post } from "@/types/community";
 
-const CHUNK_SIZE = 300;
-
 const AdminAnnouncements = () => {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
@@ -40,7 +38,7 @@ const AdminAnnouncements = () => {
 
   const fetchRecentAnnouncements = useCallback(async () => {
     try {
-      const posts = await loadPostsWithRelations({ announcementsOnly: true });
+      const posts = await loadPostsWithRelations({ announcementsOnly: true, limit: 4 });
       setRecentAnnouncements(posts.slice(0, 4));
     } catch (error) {
       console.error("Error loading recent announcements:", error);
@@ -52,33 +50,72 @@ const AdminAnnouncements = () => {
     fetchRecentAnnouncements();
   }, [fetchAudienceCount, fetchRecentAnnouncements]);
 
-  const broadcastAnnouncement = async (postId: string, announcementTitle: string, announcementContent: string) => {
+  const fallbackFanOut = async (
+    postId: string,
+    announcementTitle: string,
+    announcementContent: string
+  ) => {
     const { data: profiles, error } = await supabase
       .from("profiles")
       .select("id")
-      .in("role", ["student", "professional", "admin"]);
+      .in("role", ["student", "professional"]);
 
-    if (error) throw error;
-    if (!profiles) return;
-
-    for (let i = 0; i < profiles.length; i += CHUNK_SIZE) {
-      const chunk = profiles.slice(i, i + CHUNK_SIZE);
-      const notifications = chunk.map((profile) => ({
-        user_id: profile.id,
-        title: `New Announcement: ${announcementTitle}`,
-        message:
-          announcementContent.substring(0, 140) +
-          (announcementContent.length > 140 ? "..." : ""),
-        type: "announcement",
-        related_post_id: postId,
-      }));
-
-      const { error: notifError } = await supabase
-        .from("notifications")
-        .insert(notifications);
-
-      if (notifError) throw notifError;
+    if (error || !profiles) {
+      throw error || new Error("Unable to load recipients");
     }
+
+    const notifications = profiles.map((profile) => ({
+      user_id: profile.id,
+      title: `New Announcement: ${announcementTitle}`,
+      message:
+        announcementContent.substring(0, 140) +
+        (announcementContent.length > 140 ? "..." : ""),
+      type: "announcement",
+      related_post_id: postId,
+    }));
+
+    // Insert in manageable chunks
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < notifications.length; i += CHUNK_SIZE) {
+      const chunk = notifications.slice(i, i + CHUNK_SIZE);
+      const { error: insertError } = await supabase
+        .from("notifications")
+        .insert(chunk);
+      if (insertError) throw insertError;
+    }
+  };
+
+  const broadcastAnnouncement = async (
+    postId: string,
+    announcementTitle: string,
+    announcementContent: string
+  ) => {
+    const { error } = await supabase.rpc("broadcast_announcement_notifications", {
+      p_post_id: postId,
+      p_title: announcementTitle,
+      p_message: announcementContent,
+    });
+
+    if (error) {
+      console.warn("RPC broadcast failed, falling back to client fan-out:", error);
+      await fallbackFanOut(postId, announcementTitle, announcementContent);
+    }
+  };
+
+  const insertAnnouncementPost = async (postType: "announcement" | "idea") => {
+    return supabase
+      .from("posts")
+      .insert({
+        user_id: user?.id,
+        title,
+        content,
+        subject: "General",
+        post_type: postType,
+        category: "College",
+        is_announcement: true,
+      })
+      .select()
+      .single();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,21 +127,33 @@ const AdminAnnouncements = () => {
 
     setLoading(true);
     try {
-      const { data: post, error: postError } = await supabase
-        .from("posts")
-        .insert({
-          user_id: user.id,
-          title,
-          content,
-          subject: "General",
-          post_type: "announcement",
-          category: "College",
-          is_announcement: true,
-        })
-        .select()
-        .single();
+      let postType: "announcement" | "idea" = "announcement";
+      let postError = null;
+      let post = null;
 
-      if (postError) throw postError;
+      const attemptInsert = async () => {
+        const { data, error } = await insertAnnouncementPost(postType);
+        post = data;
+        postError = error;
+      };
+
+      await attemptInsert();
+
+      if (
+        postError &&
+        (postError.message?.includes("post_type") ||
+          postError.details?.includes("post_type") ||
+          postError.message?.toLowerCase().includes("constraint") ||
+          postError.code === "23514")
+      ) {
+        console.warn(
+          "Announcement post_type constraint triggered, falling back to 'idea' for compatibility."
+        );
+        postType = "idea";
+        await attemptInsert();
+      }
+
+      if (postError || !post) throw postError || new Error("Unable to create announcement");
 
       await broadcastAnnouncement(post.id, title, content);
 
@@ -119,9 +168,13 @@ const AdminAnnouncements = () => {
       setContent("");
       fetchRecentAnnouncements();
       fetchAudienceCount();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error posting announcement:", error);
-      toast.error("Failed to post announcement");
+      toast.error(
+        typeof error?.message === "string"
+          ? `Failed to post announcement: ${error.message}`
+          : "Failed to post announcement"
+      );
     } finally {
       setLoading(false);
     }

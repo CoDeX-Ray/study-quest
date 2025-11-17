@@ -3,19 +3,30 @@ import { Post, ProfileSummary } from "@/types/community";
 
 interface LoadPostsOptions {
   announcementsOnly?: boolean;
+  from?: number;
+  limit?: number;
 }
+
+const DEFAULT_LIMIT = 10;
 
 export const loadPostsWithRelations = async (
   options: LoadPostsOptions = {}
 ): Promise<Post[]> => {
-  const { announcementsOnly } = options;
+  const {
+    announcementsOnly,
+    from = 0,
+    limit = DEFAULT_LIMIT,
+  } = options;
+
+  const to = from + Math.max(limit, 1) - 1;
 
   let query = supabase
     .from("posts")
     .select(
       "id, title, content, subject, category, department, post_type, file_url, created_at, is_announcement, user_id"
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   if (announcementsOnly) {
     query = query.eq("is_announcement", true);
