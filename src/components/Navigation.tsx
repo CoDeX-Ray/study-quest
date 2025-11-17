@@ -5,6 +5,7 @@ import { Menu, User, LogOut, Shield } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { NotificationBell } from "./NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,9 @@ const Navigation = () => {
                   <Shield className="h-4 w-4" />
                   Admin Dashboard
                 </Link>
+                <Link to="/admin/announcements" className="text-foreground/80 hover:text-foreground transition-colors">
+                  Post Announcement
+                </Link>
                 <Link to="/community" className="text-foreground/80 hover:text-foreground transition-colors">
                   Community
                 </Link>
@@ -50,6 +54,9 @@ const Navigation = () => {
                 <Link to="/community" className="text-foreground/80 hover:text-foreground transition-colors">
                   Community
                 </Link>
+                <Link to="/announcements" className="text-foreground/80 hover:text-foreground transition-colors">
+                  Announcements
+                </Link>
               </>
             )}
             {!user ? (
@@ -57,27 +64,30 @@ const Navigation = () => {
                 <Button>Sign In</Button>
               </Link>
             ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {!isAdmin && (
-                    <Link to="/profile">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        Profile
-                      </DropdownMenuItem>
-                    </Link>
-                  )}
-                  <DropdownMenuItem onClick={signOut} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {!isAdmin && (
+                      <Link to="/profile">
+                        <DropdownMenuItem className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          Profile
+                        </DropdownMenuItem>
+                      </Link>
+                    )}
+                    <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
 
@@ -103,6 +113,7 @@ const Navigation = () => {
                       <Shield className="h-4 w-4" />
                       Admin Dashboard
                     </Link>
+                    <Link to="/admin/announcements" className="text-lg">Post Announcement</Link>
                     <Link to="/community" className="text-lg">Community</Link>
                     <Button onClick={signOut} variant="outline" className="w-full">
                       Sign Out
@@ -112,6 +123,7 @@ const Navigation = () => {
                   <>
                     <Link to="/dashboard" className="text-lg">Dashboard</Link>
                     <Link to="/community" className="text-lg">Community</Link>
+                    <Link to="/announcements" className="text-lg">Announcements</Link>
                     <Link to="/profile" className="text-lg">Profile</Link>
                     <Button onClick={signOut} variant="outline" className="w-full">
                       <LogOut className="mr-2 h-4 w-4" />

@@ -14,6 +14,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminBugReports from "./pages/AdminBugReports";
 import AdminActivityLogs from "./pages/AdminActivityLogs";
 import AdminUsers from "./pages/AdminUsers";
+import AdminAnnouncements from "./pages/AdminAnnouncements";
+import Announcements from "./pages/Announcements";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./hooks/useAuth";
 
@@ -40,6 +42,8 @@ const App = () => (
               <Route path="/admin/bug-reports" element={<AdminBugReports />} />
               <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
               <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/announcements" element={<AdminAnnouncements />} />
+              <Route path="/announcements" element={<Announcements />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
