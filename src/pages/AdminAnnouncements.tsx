@@ -40,11 +40,11 @@ const AdminAnnouncements = () => {
 
       if (postError) throw postError;
 
-      // Get all student and professional users
+      // Get all users (admins, students, professionals) for notifications
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id")
-        .in("role", ["student", "professional"]);
+        .in("role", ["student", "professional", "admin"]);
 
       if (profilesError) throw profilesError;
 
@@ -121,7 +121,7 @@ const AdminAnnouncements = () => {
         </Card>
 
         <p className="text-sm text-muted-foreground mt-4 text-center">
-          This announcement will be sent to all students and professionals
+          This announcement will be sent to everyone (admins, students, and professionals)
         </p>
       </div>
     </div>
