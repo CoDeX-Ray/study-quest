@@ -49,7 +49,19 @@ npm install
 
 ### 3. Environment Setup
 
-The project comes with a pre-configured `.env` file that connects to Lovable Cloud. No additional environment setup is required.
+Create a `.env` file in the root directory with your Supabase credentials:
+
+```bash
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key-here
+```
+
+**Important:** Never commit `.env` files to version control. The `.env` file is already in `.gitignore` for your protection.
+
+Get your credentials from your Supabase project:
+1. Go to your Supabase project dashboard
+2. Navigate to Settings > API
+3. Copy the Project URL and anon/public key
 
 ### 4. Run the Development Server
 
