@@ -2,8 +2,31 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Known-good defaults live here so a bad .env doesn't break auth/queries.
+const FALLBACK_SUPABASE_URL = 'https://xkafgylzjpyrixwthezv.supabase.co';
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrYWZneWx6anB5cml4d3RoZXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4ODQ0MTIsImV4cCI6MjA3NjQ2MDQxMn0.ajdket4su4M979nExMd2JQiff46Ia5ImB5u2ZTUBcaA';
+
+const maybeEnvUrl = import.meta.env.VITE_SUPABASE_URL;
+const maybeEnvKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const looksLikeSupabaseUrl = (url?: string) =>
+  typeof url === 'string' && url.startsWith('https://') && url.includes('.supabase.co');
+
+const looksLikeJwt = (token?: string) =>
+  typeof token === 'string' && token.split('.').length === 3;
+
+const SUPABASE_URL = looksLikeSupabaseUrl(maybeEnvUrl)
+  ? maybeEnvUrl
+  : FALLBACK_SUPABASE_URL;
+
+const SUPABASE_PUBLISHABLE_KEY = looksLikeJwt(maybeEnvKey)
+  ? maybeEnvKey
+  : FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+
+if (SUPABASE_URL === FALLBACK_SUPABASE_URL || SUPABASE_PUBLISHABLE_KEY === FALLBACK_SUPABASE_PUBLISHABLE_KEY) {
+  console.warn('[Supabase] Using fallback credentials because .env was missing or invalid.');
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

@@ -66,6 +66,9 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Check if email is admin@studyquest.com - will be granted admin role automatically
+    const isAdminEmail = email.toLowerCase() === 'admin@studyquest.com';
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -73,7 +76,7 @@ const Auth = () => {
         emailRedirectTo: `${window.location.origin}/dashboard`,
         data: {
           full_name: fullName,
-          role: role,
+          role: role, // This will be overridden to 'admin' by database trigger if email matches
         },
       },
     });
@@ -85,9 +88,13 @@ const Auth = () => {
         variant: "destructive",
       });
     } else {
+      const message = isAdminEmail 
+        ? "Admin account created successfully! You can now sign in."
+        : "Account created successfully. You can now sign in.";
+      
       toast({
         title: "Success!",
-        description: "Account created successfully. You can now sign in.",
+        description: message,
       });
       navigate("/dashboard");
     }
