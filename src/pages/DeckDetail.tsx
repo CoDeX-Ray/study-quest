@@ -239,30 +239,31 @@ const DeckDetail = () => {
   return (
     <div className="min-h-screen bg-background p-3 md:p-4 lg:p-6">
       <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 md:gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/study-hall")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: card.color }}
-              />
-              <h1 className="text-xl md:text-2xl font-bold">{card.title}</h1>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm pb-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 md:gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/study-hall")}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-4 h-4 rounded"
+                  style={{ backgroundColor: card.color }}
+                />
+                <h1 className="text-xl md:text-2xl font-bold">{card.title}</h1>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -285,16 +286,24 @@ const DeckDetail = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {/* Start Quest Button */}
-            <div className="flex justify-end">
-              <Button
-                onClick={handleStartQuest}
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Rocket className="h-4 w-4 mr-2" />
-                Start Quest
-              </Button>
+            {/* Sticky Header with Start Quest and Add Card */}
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-4 border-b border-border">
+              <div className="flex items-center justify-between gap-4">
+                <AddCardItemDialog cardId={deckId!} onItemAdded={fetchDeck}>
+                  <Button variant="outline" size="lg" className="flex-1">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Card
+                  </Button>
+                </AddCardItemDialog>
+                <Button
+                  onClick={handleStartQuest}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 flex-1"
+                >
+                  <Rocket className="h-4 w-4 mr-2" />
+                  Start Quest
+                </Button>
+              </div>
             </div>
 
             {/* Cards List */}
@@ -342,15 +351,6 @@ const DeckDetail = () => {
               ))}
             </div>
 
-            {/* Add Card Button */}
-            <div className="flex justify-center pt-4">
-              <AddCardItemDialog cardId={deckId!} onItemAdded={fetchDeck}>
-                <Button variant="outline" size="lg">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Card
-                </Button>
-              </AddCardItemDialog>
-            </div>
           </div>
         )}
       </div>

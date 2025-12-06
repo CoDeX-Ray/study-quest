@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import StudyQuestLogo from "@/components/StudyQuestLogo";
 import { ProfilePopupButton } from "@/components/ProfilePopupButton";
 import { LeaderboardDialog } from "@/components/LeaderboardDialog";
@@ -41,6 +42,7 @@ interface StudyCard {
   title: string;
   color: string;
   user_id: string;
+  card_count?: number;
 }
 
 const StudyHall = () => {
@@ -54,6 +56,7 @@ const StudyHall = () => {
   const [selectedNav, setSelectedNav] = useState("progress");
   const [profileLoading, setProfileLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
+  const [hasCardsWithItems, setHasCardsWithItems] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -148,16 +151,43 @@ const StudyHall = () => {
   const fetchMyCards = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const { data, error } = await supabase
+      // Fetch cards
+      const { data: cardsData, error: cardsError } = await supabase
         .from("study_cards")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       
-      if (error) {
-        console.error("Error fetching cards:", error);
-      } else if (data) {
-        setMyCards(data);
+      if (cardsError) {
+        console.error("Error fetching cards:", cardsError);
+        return;
+      }
+
+      if (cardsData && cardsData.length > 0) {
+        // Fetch counts for all cards in one query
+        const cardIds = cardsData.map(c => c.id);
+        const { data: itemsData } = await supabase
+          .from("study_card_items")
+          .select("card_id")
+          .in("card_id", cardIds);
+        
+        // Count items per card
+        const countMap = new Map<string, number>();
+        if (itemsData) {
+          itemsData.forEach(item => {
+            countMap.set(item.card_id, (countMap.get(item.card_id) || 0) + 1);
+          });
+        }
+        
+        // Map cards with count
+        const cardsWithCount = cardsData.map(card => ({
+          ...card,
+          card_count: countMap.get(card.id) || 0
+        }));
+        
+        setMyCards(cardsWithCount);
+      } else {
+        setMyCards([]);
       }
     } catch (error) {
       console.error("Error in fetchMyCards:", error);
@@ -182,6 +212,29 @@ const StudyHall = () => {
       console.error("Error in fetchPublicCards:", error);
     }
   }, []);
+
+  // Check if there are any cards with items (optimized with single query)
+  useEffect(() => {
+    const checkCardsWithItems = async () => {
+      const allCardIds = [...myCards.map(c => c.id), ...publicCards.map(c => c.id)];
+      
+      if (allCardIds.length === 0) {
+        setHasCardsWithItems(false);
+        return;
+      }
+
+      // Single query to check if any card has items
+      const { data } = await supabase
+        .from("study_card_items")
+        .select("card_id")
+        .in("card_id", allCardIds)
+        .limit(1);
+      
+      setHasCardsWithItems(data && data.length > 0);
+    };
+
+    checkCardsWithItems();
+  }, [myCards, publicCards]);
 
   // Show loading only during initial auth check
   if (loading || adminLoading) {
@@ -222,8 +275,33 @@ const StudyHall = () => {
     return days;
   };
 
-  const handleStartQuest = () => {
-    navigate("/study-quest");
+  const handleStartQuest = async () => {
+    // Check if user has any cards
+    if (myCards.length === 0 && publicCards.length === 0) {
+      toast.error("Please create a deck or browse public decks first");
+      setSelectedNav("my-decks");
+      return;
+    }
+
+    // Optimized: Find first card with items using a single query
+    const allCardIds = [...myCards.map(c => c.id), ...publicCards.map(c => c.id)];
+    
+    // Get the first card that has items
+    const { data: items } = await supabase
+      .from("study_card_items")
+      .select("card_id")
+      .in("card_id", allCardIds)
+      .order("card_id")
+      .limit(1);
+    
+    if (items && items.length > 0) {
+      navigate(`/study-quest?card=${items[0].card_id}`);
+      return;
+    }
+
+    // If no cards with items found
+    toast.error("No decks with cards available. Please create a deck with at least one card.");
+    setSelectedNav("my-decks");
   };
 
   // Ensure we always have a valid profile to render
@@ -309,7 +387,9 @@ const StudyHall = () => {
           <div className="mt-6 space-y-2">
             <Button
               onClick={handleStartQuest}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0) ? "Create a deck with cards first" : "Start studying"}
             >
               <Rocket className="h-4 w-4 mr-2" />
               Start Quest
@@ -436,7 +516,9 @@ const StudyHall = () => {
             <div className="mt-6 space-y-2">
               <Button
                 onClick={handleStartQuest}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0) ? "Create a deck with cards first" : "Start studying"}
               >
                 <Rocket className="h-4 w-4 mr-2" />
                 Start Quest
@@ -648,7 +730,7 @@ const StudyHall = () => {
                     />
                     <h3 className="font-semibold mb-1">{card.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Click to study
+                      {card.card_count || 0} {card.card_count === 1 ? 'card' : 'cards'}
                     </p>
                   </Card>
                 ))}
@@ -804,7 +886,9 @@ const StudyHall = () => {
                   </div>
                   <Button
                     onClick={handleStartQuest}
-                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0)}
+                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!hasCardsWithItems && (myCards.length === 0 && publicCards.length === 0) ? "Create a deck with cards first" : "Start studying"}
                   >
                     <Rocket className="h-4 w-4 mr-2" />
                     Start streak

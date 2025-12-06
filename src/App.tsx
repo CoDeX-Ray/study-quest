@@ -1,27 +1,29 @@
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
-import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import StudyHall from "./pages/StudyHall";
-import StudyQuest from "./pages/StudyQuest";
-import DeckDetail from "./pages/DeckDetail";
-import Community from "./pages/Community";
-import CreatePost from "./pages/CreatePost";
-import Auth from "./pages/Auth";
-import Profile from "./pages/Profile";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminBugReports from "./pages/AdminBugReports";
-import AdminActivityLogs from "./pages/AdminActivityLogs";
-import AdminUsers from "./pages/AdminUsers";
-import AdminAnnouncements from "./pages/AdminAnnouncements";
-import Announcements from "./pages/Announcements";
-import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./hooks/useAuth";
+
+// Lazy load pages for better performance
+const Landing = lazy(() => import("./pages/Landing"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const StudyHall = lazy(() => import("./pages/StudyHall"));
+const StudyQuest = lazy(() => import("./pages/StudyQuest"));
+const DeckDetail = lazy(() => import("./pages/DeckDetail"));
+const Community = lazy(() => import("./pages/Community"));
+const CreatePost = lazy(() => import("./pages/CreatePost"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Profile = lazy(() => import("./pages/Profile"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminBugReports = lazy(() => import("./pages/AdminBugReports"));
+const AdminActivityLogs = lazy(() => import("./pages/AdminActivityLogs"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminAnnouncements = lazy(() => import("./pages/AdminAnnouncements"));
+const Announcements = lazy(() => import("./pages/Announcements"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
