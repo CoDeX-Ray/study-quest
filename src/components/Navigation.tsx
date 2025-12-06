@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import StudyQuestLogo from "./StudyQuestLogo";
 import { Menu, User, LogOut, Shield } from "lucide-react";
@@ -16,6 +16,12 @@ import {
 const Navigation = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
+  const location = useLocation();
+  
+  // Hide navigation on Study Hall page (it has its own sidebar)
+  if (location.pathname === "/study-hall") {
+    return null;
+  }
 
   return (
     <nav className={`border-b border-border/40 sticky top-0 z-50 backdrop-blur-lg ${isAdmin ? 'bg-gradient-to-r from-destructive/10 to-warning/10' : 'bg-surface/50'}`}>
@@ -48,8 +54,8 @@ const Navigation = () => {
               </>
             ) : (
               <>
-                <Link to="/dashboard" className="text-foreground/80 hover:text-foreground transition-colors">
-                  Dashboard
+                <Link to="/study-hall" className="text-foreground/80 hover:text-foreground transition-colors">
+                  Study Hall
                 </Link>
                 <Link to="/community" className="text-foreground/80 hover:text-foreground transition-colors">
                   Community
@@ -121,7 +127,7 @@ const Navigation = () => {
                   </>
                 ) : (
                   <>
-                    <Link to="/dashboard" className="text-lg">Dashboard</Link>
+                    <Link to="/study-hall" className="text-lg">Study Hall</Link>
                     <Link to="/community" className="text-lg">Community</Link>
                     <Link to="/announcements" className="text-lg">Announcements</Link>
                     <Link to="/profile" className="text-lg">Profile</Link>

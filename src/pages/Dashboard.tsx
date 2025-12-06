@@ -25,8 +25,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (!adminLoading && isAdmin) {
       navigate("/admin/dashboard");
+    } else if (!adminLoading && !isAdmin && user) {
+      // Redirect non-admin users to Study Hall
+      navigate("/study-hall");
     }
-  }, [isAdmin, adminLoading, navigate]);
+  }, [isAdmin, adminLoading, navigate, user]);
 
   useEffect(() => {
     if (user) {

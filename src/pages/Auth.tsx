@@ -55,7 +55,7 @@ const Auth = () => {
       if (isAdmin) {
         navigate("/admin/dashboard");
       } else {
-        navigate("/dashboard");
+        navigate("/study-hall");
       }
     }
 
@@ -73,7 +73,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/study-hall`,
         data: {
           full_name: fullName,
           role: role, // This will be overridden to 'admin' by database trigger if email matches
@@ -96,7 +96,7 @@ const Auth = () => {
         title: "Success!",
         description: message,
       });
-      navigate("/dashboard");
+      navigate("/study-hall");
     }
 
     setLoading(false);

@@ -1,0 +1,785 @@
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { 
+  Rocket, BarChart3, Globe, User, Plus, ChevronRight, 
+  Star, Award, Flame,
+  Trophy, Share2, Target, Users
+} from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Menu } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { supabase } from "@/integrations/supabase/client";
+import StudyQuestLogo from "@/components/StudyQuestLogo";
+import { ProfilePopupButton } from "@/components/ProfilePopupButton";
+import { LeaderboardDialog } from "@/components/LeaderboardDialog";
+import { CreateCardDialog } from "@/components/CreateCardDialog";
+import { FriendRequestDialog } from "@/components/FriendRequestDialog";
+
+interface Profile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  xp: number;
+  level: number;
+  role: string;
+  current_streak: number | null;
+  longest_streak: number | null;
+}
+
+interface StudyCard {
+  id: string;
+  title: string;
+  color: string;
+  user_id: string;
+}
+
+const StudyHall = () => {
+  const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [myCards, setMyCards] = useState<StudyCard[]>([]);
+  const [publicCards, setPublicCards] = useState<StudyCard[]>([]);
+  const [selectedNav, setSelectedNav] = useState("progress");
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!adminLoading && isAdmin) {
+      navigate("/admin/dashboard");
+    }
+  }, [isAdmin, adminLoading, navigate]);
+
+  useEffect(() => {
+    if (user && !loading) {
+      Promise.all([
+        fetchProfile(),
+        fetchPosts(),
+        fetchMyCards()
+      ]).finally(() => {
+        setDataLoading(false);
+      });
+    }
+  }, [user, loading]);
+
+  const fetchProfile = useCallback(async () => {
+    if (!user?.id) {
+      setProfileLoading(false);
+      return;
+    }
+    
+    try {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        // If profile doesn't exist, create a default one
+        if (error.code === 'PGRST116') {
+          try {
+            const { data: newProfile, error: insertError } = await supabase
+              .from("profiles")
+              .insert({
+                id: user.id,
+                email: user.email || '',
+                full_name: user.user_metadata?.full_name || null,
+                role: user.user_metadata?.role || 'student',
+              })
+              .select()
+              .single();
+            if (newProfile && !insertError) {
+              setProfile(newProfile);
+            }
+          } catch (insertErr) {
+            console.error("Error creating profile:", insertErr);
+          }
+        }
+      } else if (data) {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error("Error in fetchProfile:", error);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [user]);
+
+  const fetchPosts = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      
+      if (error) {
+        console.error("Error fetching posts:", error);
+      } else if (data) {
+        setPosts(data);
+      }
+    } catch (error) {
+      console.error("Error in fetchPosts:", error);
+    }
+  }, [user]);
+
+  const fetchMyCards = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from("study_cards")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching cards:", error);
+      } else if (data) {
+        setMyCards(data);
+      }
+    } catch (error) {
+      console.error("Error in fetchMyCards:", error);
+    }
+  }, [user]);
+
+  const fetchPublicCards = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("study_cards")
+        .select("*")
+        .eq("is_public", true)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      
+      if (error) {
+        console.error("Error fetching public cards:", error);
+      } else if (data) {
+        setPublicCards(data);
+      }
+    } catch (error) {
+      console.error("Error in fetchPublicCards:", error);
+    }
+  }, []);
+
+  // Show loading only during initial auth check
+  if (loading || adminLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background text-foreground">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-game-green mx-auto"></div>
+          <p className="text-muted-foreground">Loading Study Hall...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect if no user
+  if (!user) {
+    return null; // Will redirect via useEffect
+  }
+
+
+  // Get current date for streak calendar
+  const today = new Date();
+  const currentDate = today.getDate();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const daysInMonth = lastDayOfMonth.getDate();
+  const startingDayOfWeek = firstDayOfMonth.getDay();
+
+  const getDaysArray = () => {
+    const days: (number | null)[] = [];
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    // Add all days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+    return days;
+  };
+
+  const handleStartQuest = () => {
+    navigate("/study-quest");
+  };
+
+  // Ensure we always have a valid profile to render
+  const currentProfile: Profile = profile || {
+    id: user?.id || '',
+    full_name: user?.user_metadata?.full_name || null,
+    avatar_url: null,
+    xp: 0,
+    level: 1,
+    role: user?.user_metadata?.role || 'student',
+    current_streak: null,
+    longest_streak: null,
+  };
+
+  const maxXP = currentProfile.level * 100;
+  const xpProgress = maxXP > 0 ? (currentProfile.xp % maxXP) / maxXP * 100 : 0;
+  const roleDisplay = currentProfile.role.charAt(0).toUpperCase() + currentProfile.role.slice(1);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
+      {/* Left Sidebar - Hidden on mobile, shown on desktop */}
+      <aside className="hidden md:flex w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col shrink-0">
+        <div className="p-4 border-b border-sidebar-border">
+          <div className="flex items-center gap-2 mb-6">
+            <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
+            <span className="text-xl font-bold">StudyQuest</span>
+          </div>
+          
+          {/* Navigation */}
+          <nav className="space-y-1">
+            <button
+              onClick={() => setSelectedNav("progress")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                selectedNav === "progress"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+              }`}
+            >
+              <Rocket className="h-5 w-5" />
+              <span>Progress</span>
+            </button>
+            <button
+              onClick={() => setSelectedNav("my-decks")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                selectedNav === "my-decks"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+              }`}
+            >
+              <BarChart3 className="h-5 w-5" />
+              <span>My decks</span>
+            </button>
+            <button
+              onClick={() => {
+                setSelectedNav("public-decks");
+                if (publicCards.length === 0) {
+                  fetchPublicCards();
+                }
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                selectedNav === "public-decks"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+              }`}
+            >
+              <Globe className="h-5 w-5" />
+              <span>Public decks</span>
+            </button>
+            <button
+              onClick={() => navigate("/profile")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                selectedNav === "profile"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+              }`}
+            >
+              <User className="h-5 w-5" />
+              <span>Profile</span>
+            </button>
+          </nav>
+
+          {/* Action Buttons */}
+          <div className="mt-6 space-y-2">
+            <Button
+              onClick={handleStartQuest}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Rocket className="h-4 w-4 mr-2" />
+              Start Quest
+            </Button>
+            <CreateCardDialog onCardCreated={() => {
+              fetchMyCards();
+              setSelectedNav("my-decks");
+            }}>
+              <Button variant="outline" className="w-full border-2">
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </CreateCardDialog>
+          </div>
+        </div>
+
+        {/* My Decks Section */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-sidebar-foreground">My decks</h3>
+            <CreateCardDialog onCardCreated={() => {
+              fetchMyCards();
+              setSelectedNav("my-decks");
+            }}>
+              <button className="text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                <Plus className="h-4 w-4" />
+              </button>
+            </CreateCardDialog>
+          </div>
+          <div className="space-y-2">
+            {myCards.map((card) => (
+              <button
+                key={card.id}
+                onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-sidebar-accent/50 transition-colors group"
+              >
+                <div
+                  className="w-4 h-4 rounded"
+                  style={{ backgroundColor: card.color }}
+                />
+                <span className="flex-1 text-left text-sm text-sidebar-foreground/80 group-hover:text-sidebar-foreground">
+                  {card.title}
+                </span>
+                <ChevronRight className="h-4 w-4 text-sidebar-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ))}
+            {myCards.length === 0 && (
+              <p className="text-sm text-sidebar-foreground/50 text-center py-4">
+                No decks yet. Create one to get started!
+              </p>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Sidebar */}
+      <Sheet>
+        <SheetTrigger asChild className="md:hidden fixed top-4 left-4 z-50">
+          <Button variant="outline" size="icon" className="bg-background">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="p-4 border-b border-sidebar-border">
+            <div className="flex items-center gap-2 mb-6">
+              <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
+              <span className="text-xl font-bold">StudyQuest</span>
+            </div>
+            
+            {/* Navigation */}
+            <nav className="space-y-1">
+              <button
+                onClick={() => setSelectedNav("progress")}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  selectedNav === "progress"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                }`}
+              >
+                <Rocket className="h-5 w-5" />
+                <span>Progress</span>
+              </button>
+              <button
+                onClick={() => setSelectedNav("my-decks")}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  selectedNav === "my-decks"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                }`}
+              >
+                <BarChart3 className="h-5 w-5" />
+                <span>My decks</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedNav("public-decks");
+                  if (publicCards.length === 0) {
+                    fetchPublicCards();
+                  }
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  selectedNav === "public-decks"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                }`}
+              >
+                <Globe className="h-5 w-5" />
+                <span>Public decks</span>
+              </button>
+              <button
+                onClick={() => navigate("/profile")}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  selectedNav === "profile"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                }`}
+              >
+                <User className="h-5 w-5" />
+                <span>Profile</span>
+              </button>
+            </nav>
+
+            {/* Action Buttons */}
+            <div className="mt-6 space-y-2">
+              <Button
+                onClick={handleStartQuest}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Rocket className="h-4 w-4 mr-2" />
+                Start Quest
+              </Button>
+              <CreateCardDialog onCardCreated={() => {
+                fetchMyCards();
+                setSelectedNav("my-decks");
+              }}>
+                <Button variant="outline" className="w-full border-2">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </CreateCardDialog>
+            </div>
+          </div>
+
+          {/* My Decks Section */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-sidebar-foreground">My decks</h3>
+              <CreateCardDialog onCardCreated={() => {
+                fetchMyCards();
+                setSelectedNav("my-decks");
+              }}>
+                <button className="text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </CreateCardDialog>
+            </div>
+            <div className="space-y-2">
+              {myCards.map((card) => (
+                <button
+                  key={card.id}
+                  onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-sidebar-accent/50 transition-colors group"
+                >
+                  <div
+                    className="w-4 h-4 rounded"
+                    style={{ backgroundColor: card.color }}
+                  />
+                  <span className="flex-1 text-left text-sm text-sidebar-foreground/80 group-hover:text-sidebar-foreground">
+                    {card.title}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-sidebar-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              ))}
+              {myCards.length === 0 && (
+                <p className="text-sm text-sidebar-foreground/50 text-center py-4">
+                  No decks yet. Create one to get started!
+                </p>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 mt-16 md:mt-0">
+        {/* Top Header */}
+        <header className="h-16 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 shrink-0 flex-wrap gap-2">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs md:text-sm">
+              <User className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">StudyQuest Live</span>
+              <span className="sm:hidden">Live</span>
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+            <div className="flex items-center gap-1 md:gap-2">
+              <Star className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 fill-yellow-500" />
+              <span className="font-semibold text-sm md:text-base">{currentProfile.xp}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden sm:flex"
+              onClick={() => {
+                const trigger = document.getElementById("leaderboard-trigger");
+                if (trigger) trigger.click();
+              }}
+            >
+              <Trophy className="h-4 w-4 mr-2" />
+              Leaderboard
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden sm:flex"
+              onClick={() => {
+                const trigger = document.getElementById("friend-request-trigger");
+                if (trigger) trigger.click();
+              }}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Friends
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              onClick={() => {
+                const trigger = document.getElementById("leaderboard-trigger");
+                if (trigger) trigger.click();
+              }}
+            >
+              <Trophy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              onClick={() => {
+                const trigger = document.getElementById("friend-request-trigger");
+                if (trigger) trigger.click();
+              }}
+            >
+              <Users className="h-4 w-4" />
+            </Button>
+            <ProfilePopupButton />
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-background">
+          {selectedNav === "public-decks" ? (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="text-2xl font-bold">Public Decks</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {publicCards.map((card) => (
+                  <Card
+                    key={card.id}
+                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                  >
+                    <div
+                      className="w-full h-2 rounded mb-3"
+                      style={{ backgroundColor: card.color }}
+                    />
+                    <h3 className="font-semibold mb-1">{card.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Click to study
+                    </p>
+                  </Card>
+                ))}
+                {publicCards.length === 0 && (
+                  <p className="text-muted-foreground col-span-full text-center py-8">
+                    No public decks available yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : selectedNav === "my-decks" ? (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <h2 className="text-2xl font-bold">My Decks</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myCards.map((card) => (
+                  <Card
+                    key={card.id}
+                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                  >
+                    <div
+                      className="w-full h-2 rounded mb-3"
+                      style={{ backgroundColor: card.color }}
+                    />
+                    <h3 className="font-semibold mb-1">{card.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Click to study
+                    </p>
+                  </Card>
+                ))}
+                {myCards.length === 0 && (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-muted-foreground mb-4">No decks yet.</p>
+                    <CreateCardDialog onCardCreated={fetchMyCards}>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Your First Deck
+                      </Button>
+                    </CreateCardDialog>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Progress Card */}
+            <Card className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={currentProfile.avatar_url || undefined} />
+                    <AvatarFallback>
+                      {currentProfile.full_name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                    {currentProfile.level}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-1">{roleDisplay}</h3>
+                  <div className="space-y-2">
+                    <Progress value={xpProgress} className="h-2" />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Level {currentProfile.level}: {maxXP} XP</span>
+                      <span className="text-muted-foreground">{currentProfile.xp} XP</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Stats Grid - Compact Modern Design */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Total XP</p>
+                    <p className="text-xl font-bold text-game-green">{currentProfile.xp}</p>
+                  </div>
+                  <Trophy className="h-5 w-5 text-game-green" />
+                </div>
+              </Card>
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Materials</p>
+                    <p className="text-xl font-bold text-blue-500">{posts.length}</p>
+                  </div>
+                  <Share2 className="h-5 w-5 text-blue-500" />
+                </div>
+              </Card>
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Level</p>
+                    <p className="text-xl font-bold text-level-gold">{currentProfile.level}</p>
+                  </div>
+                  <Award className="h-5 w-5 text-level-gold" />
+                </div>
+              </Card>
+              <Card className="p-4 bg-gradient-card border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Role</p>
+                    <p className="text-xl font-bold text-purple-500">{roleDisplay}</p>
+                  </div>
+                  <Target className="h-5 w-5 text-purple-500" />
+                </div>
+              </Card>
+            </div>
+
+            {/* Streak Card */}
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg md:text-xl font-semibold mb-4">Start your streak!</h3>
+              <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+                {/* Calendar */}
+                <div>
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                      <div key={day} className="text-center text-xs text-muted-foreground font-medium">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {getDaysArray().map((day, index) => (
+                      <div
+                        key={index}
+                        className={`aspect-square rounded-full flex items-center justify-center text-xs ${
+                          day === currentDate
+                            ? "bg-red-500 text-white font-bold"
+                            : day
+                            ? "bg-muted text-muted-foreground"
+                            : ""
+                        }`}
+                      >
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Streak Progress */}
+                <div className="flex flex-col items-center justify-center">
+                  <div className="text-3xl md:text-4xl font-bold mb-2">
+                    {currentProfile.current_streak || 0}
+                  </div>
+                  <p className="text-xs md:text-sm text-muted-foreground mb-4 md:mb-6">
+                    {currentProfile.current_streak && currentProfile.current_streak > 0 
+                      ? "Day streak! 🔥" 
+                      : "Complete a deck to start your streak"}
+                  </p>
+                  <div className="relative w-24 h-24 md:w-32 md:h-32">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        className="text-muted"
+                      />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 45}`}
+                        strokeDashoffset={`${2 * Math.PI * 45 * 0.9}`}
+                        className="text-red-500"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Flame className="h-8 w-8 md:h-12 md:w-12 text-orange-500" />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleStartQuest}
+                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Rocket className="h-4 w-4 mr-2" />
+                    Start streak
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+          )}
+        </main>
+      </div>
+
+      {/* Leaderboard Dialog */}
+      <LeaderboardDialog />
+      
+      {/* Friend Request Dialog */}
+      <FriendRequestDialog />
+    </div>
+  );
+};
+
+export default StudyHall;
