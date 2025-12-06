@@ -13,7 +13,11 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, User, LogOut, Trophy } from "lucide-react";
 import ProfilePopup from "./ProfilePopup";
 
-export const ProfilePopupButton = () => {
+interface ProfilePopupButtonProps {
+  hideProfile?: boolean;
+}
+
+export const ProfilePopupButton = ({ hideProfile = false }: ProfilePopupButtonProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
@@ -52,10 +56,12 @@ export const ProfilePopupButton = () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => navigate("/profile")}>
-            <User className="mr-2 h-4 w-4" />
-            Profile
-          </DropdownMenuItem>
+          {!hideProfile && (
+            <DropdownMenuItem onClick={() => navigate("/profile")}>
+              <User className="mr-2 h-4 w-4" />
+              Profile
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => {
             const trigger = document.getElementById("leaderboard-trigger");
             if (trigger) trigger.click();

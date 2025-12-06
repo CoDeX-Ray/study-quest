@@ -103,8 +103,8 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-surface-elevated">
-      <Card className="w-full max-w-md p-8 bg-surface border-border/50">
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 bg-gradient-to-br from-background via-background to-surface-elevated">
+      <Card className="w-full max-w-md p-4 sm:p-6 md:p-8 bg-surface border-border/50">
         <div className="flex justify-center mb-8">
           <StudyQuestLogo />
         </div>

@@ -421,8 +421,8 @@ const Announcements = () => {
     <div className="community-shell">
       <div className="community-halo community-halo-one animate-gradient-slow" />
       <div className="community-halo community-halo-two animate-gradient-slow" />
-      <div className="relative z-10 container mx-auto px-4 py-10 max-w-5xl space-y-8">
-        <section className="community-panel rounded-3xl p-6 sm:p-10 shadow-glow">
+      <div className="relative z-10 container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 md:py-10 max-w-5xl space-y-6 md:space-y-8">
+        <section className="community-panel rounded-3xl p-4 sm:p-6 md:p-10 shadow-glow">
           <div className="flex flex-col gap-4">
             <p className="text-xs uppercase tracking-[0.35em] text-primary/70 flex items-center gap-2">
               <Megaphone className="h-5 w-5" />
@@ -448,7 +448,7 @@ const Announcements = () => {
             return (
               <Card
                 key={announcement.id}
-                className="community-card relative overflow-hidden p-6 sm:p-8"
+                className="community-card relative overflow-hidden p-4 sm:p-6 md:p-8"
               >
                 <div className="community-card-glow" />
                 <div className="relative z-10 space-y-4">

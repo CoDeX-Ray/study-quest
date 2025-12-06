@@ -32,11 +32,11 @@ const Landing = () => {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-hero">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-16 sm:py-20 md:py-24">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8 animate-slide-in">
               <div className="space-y-4">
-                <h1 className="text-5xl lg:text-6xl font-bold font-gaming">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold font-gaming">
                   Level Up Your
                   <span className="block bg-gradient-primary bg-clip-text text-transparent">
                     Learning Journey
@@ -76,8 +76,8 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-background">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="text-center space-y-4 mb-16">
             <h2 className="text-4xl font-bold font-gaming">Why Choose StudyQuest?</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">

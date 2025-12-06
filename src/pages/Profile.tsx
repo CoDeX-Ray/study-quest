@@ -324,7 +324,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 max-w-6xl">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 lg:p-8 max-w-6xl">
       <AchievementPopup
         achievement={achievementPopup}
         open={!!achievementPopup}
@@ -336,8 +336,8 @@ const Profile = () => {
         onOpenChange={(open) => !open && setLevelUpPopup(null)}
       />
       
-      <Card className={`p-6 md:p-8 mb-8 bg-gradient-card ${profile.border_style === "rainbow" ? "" : getBorderClass(profile.border_style)}`} style={profile.border_style === "rainbow" ? {} : getBorderStyle(profile.border_style)}>
-        <div className="flex flex-col md:flex-row items-center gap-6">
+      <Card className={`p-4 sm:p-6 md:p-8 mb-6 md:mb-8 bg-gradient-card ${profile.border_style === "rainbow" ? "" : getBorderClass(profile.border_style)}`} style={profile.border_style === "rainbow" ? {} : getBorderStyle(profile.border_style)}>
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
           <div className={getRainbowBorderWrapper(profile.border_style)}>
             <div className={`w-24 h-24 rounded-full bg-game-green/20 flex items-center justify-center text-4xl ${profile.border_style === "rainbow" ? "" : getBorderClass(profile.border_style)}`} style={profile.border_style === "rainbow" ? {} : getBorderStyle(profile.border_style)}>
               {profile.full_name?.[0] || "?"}
@@ -375,7 +375,7 @@ const Profile = () => {
               return (
                 <Card
                   key={achievement.id}
-                  className={`p-6 ${isUnlocked ? "bg-gradient-card border-game-green" : "bg-surface opacity-60"}`}
+                  className={`p-4 md:p-6 ${isUnlocked ? "bg-gradient-card border-game-green" : "bg-surface opacity-60"}`}
                 >
                   <div className="text-4xl mb-3">{achievement.icon}</div>
                   <h3 className="font-bold text-lg mb-2">{achievement.name}</h3>
@@ -393,7 +393,7 @@ const Profile = () => {
 
         {isViewingOwnProfile && (
           <TabsContent value="shop">
-            <Card className="p-4 mb-6 bg-warning/10 border-warning/20">
+            <Card className="p-3 md:p-4 mb-4 md:mb-6 bg-warning/10 border-warning/20">
               <h3 className="font-semibold mb-2">💡 How Shop Works</h3>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                 <li>When you purchase an item, <strong>XP will be deducted</strong> from your account (amount shown on each item)</li>
@@ -402,7 +402,7 @@ const Profile = () => {
                 <li>Your level may decrease if XP deduction causes you to drop below the current level threshold</li>
               </ul>
             </Card>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {shopItems.map((item) => {
                 const isPurchased = purchases.includes(item.id);
                 const canAfford = profile.xp >= item.xp_cost;
@@ -411,7 +411,7 @@ const Profile = () => {
                   (item.item_type === "name_color" && profile.name_color === item.item_value);
 
                 return (
-                  <Card key={item.id} className="p-6 bg-surface border-border/50">
+                  <Card key={item.id} className="p-4 md:p-6 bg-surface border-border/50">
                     <h3 className="font-bold text-lg mb-2">{item.name}</h3>
                     <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
                     <div className="space-y-2">

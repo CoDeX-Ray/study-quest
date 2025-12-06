@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ShareCardDialog } from "@/components/ShareCardDialog";
 import { AddCardItemDialog } from "@/components/AddCardItemDialog";
+import { AnswerAnimation } from "@/components/AnswerAnimation";
 
 interface StudyCard {
   id: string;
@@ -45,10 +46,12 @@ const StudyQuest = () => {
   const [userAnswer, setUserAnswer] = useState("");
   const [showAnswerInput, setShowAnswerInput] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [animationData, setAnimationData] = useState<{ isCorrect: boolean; xpEarned: number } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/study-hall");
+      navigate("/auth");
     }
   }, [user, authLoading, navigate]);
 
@@ -59,22 +62,31 @@ const StudyQuest = () => {
       // If no card specified, navigate to study hall
       navigate("/study-hall");
     }
-  }, [user, cardId]);
+  }, [user, cardId, navigate]);
+
+  // Reset state when cardId changes
+  useEffect(() => {
+    if (cardId) {
+      setCurrentIndex(0);
+      setIsFlipped(false);
+      setShowAnswerInput(false);
+      setUserAnswer("");
+      setAnswered(new Set());
+      setCorrect(new Set());
+      setShowAnimation(false);
+      setAnimationData(null);
+    }
+  }, [cardId]);
 
   const fetchCard = async () => {
     if (!cardId) return;
 
     setLoading(true);
     try {
-      // Fetch card with owner info
+      // Fetch card
       const { data: cardData, error: cardError } = await supabase
         .from("study_cards")
-        .select(`
-          *,
-          profiles:user_id (
-            full_name
-          )
-        `)
+        .select("*")
         .eq("id", cardId)
         .single();
 
@@ -104,8 +116,14 @@ const StudyQuest = () => {
 
       setItems(itemsData || []);
     } catch (error: any) {
+      console.error("Error fetching card:", error);
       toast.error(error.message || "Failed to load card");
-      navigate("/study-hall");
+      setLoading(false);
+      // Navigate back after showing error
+      setTimeout(() => {
+        navigate("/study-hall");
+      }, 2000);
+      return;
     } finally {
       setLoading(false);
     }
@@ -149,25 +167,15 @@ const StudyQuest = () => {
                      userAnswerLower.includes(correctAnswer);
 
     setAnswered((prev) => new Set([...prev, itemId]));
+    const xpEarned = isCorrect ? 10 : 0;
+    
     if (isCorrect) {
       setCorrect((prev) => new Set([...prev, itemId]));
-      toast.success("Correct! ✅");
-    } else {
-      toast.error(`Incorrect. The answer is: ${items[currentIndex].back}`);
     }
 
-    // Move to next card after a short delay
-    setTimeout(() => {
-      if (currentIndex < items.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-        setIsFlipped(false);
-        setShowAnswerInput(false);
-        setUserAnswer("");
-      } else {
-        // Last card, show completion
-        setShowAnswerInput(false);
-      }
-    }, 2000);
+    // Show animation
+    setAnimationData({ isCorrect, xpEarned });
+    setShowAnimation(true);
   };
 
   const handleAnswer = (isCorrect: boolean) => {
@@ -217,14 +225,34 @@ const StudyQuest = () => {
     setCorrect(new Set());
   };
 
+  const handleAnimationComplete = () => {
+    setShowAnimation(false);
+    setAnimationData(null);
+    
+    // Move to next card
+    if (currentIndex < items.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setIsFlipped(false);
+      setShowAnswerInput(false);
+      setUserAnswer("");
+    } else {
+      // Last card, show completion
+      setShowAnswerInput(false);
+      // Save session when all cards are answered
+      if (answered.size === items.length) {
+        saveStudySession();
+      }
+    }
+  };
+
   const saveStudySession = async () => {
     if (!user || !cardId || items.length === 0) return;
 
     try {
       const questionsAnswered = answered.size;
       const correctAnswers = correct.size;
-      // Only award XP if at least one question was answered correctly
-      const xpEarned = correctAnswers > 0 ? correctAnswers * 10 : 0; // 10 XP per correct answer
+      // Calculate total XP earned (10 XP per correct answer)
+      const totalXPEarned = correctAnswers * 10;
 
       // Save study session - the database trigger will handle XP and streak updates
       const { error: sessionError } = await supabase.from("study_sessions").insert({
@@ -232,7 +260,7 @@ const StudyQuest = () => {
         card_id: cardId,
         questions_answered: questionsAnswered,
         correct_answers: correctAnswers,
-        xp_earned: xpEarned,
+        xp_earned: totalXPEarned,
         session_date: new Date().toISOString().split('T')[0], // Current date
       });
 
@@ -247,8 +275,8 @@ const StudyQuest = () => {
         .eq("id", user.id)
         .single();
 
-      if (updatedProfile && xpEarned > 0) {
-        toast.success(`Earned ${xpEarned} XP! ${updatedProfile.current_streak > 0 ? `🔥 Streak: ${updatedProfile.current_streak}` : ''}`);
+      if (updatedProfile && totalXPEarned > 0) {
+        toast.success(`Earned ${totalXPEarned} XP! ${updatedProfile.current_streak > 0 ? `🔥 Streak: ${updatedProfile.current_streak}` : ''}`);
       } else if (questionsAnswered > 0) {
         toast.success("Progress saved!");
       }
@@ -258,18 +286,36 @@ const StudyQuest = () => {
     }
   };
 
-  if (authLoading || loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-game-green mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-game-green mx-auto"></div>
+          <p className="text-muted-foreground">Loading deck...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!card) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-background p-4 md:p-6">
         <Button variant="ghost" onClick={() => navigate("/study-hall")} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Study Hall
         </Button>
-        <Card className="p-8 text-center">
+        <Card className="p-6 md:p-8 text-center">
           <p className="text-muted-foreground">Card deck not found.</p>
         </Card>
       </div>
@@ -278,8 +324,8 @@ const StudyQuest = () => {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button variant="ghost" onClick={() => navigate("/study-hall")}>
@@ -310,13 +356,53 @@ const StudyQuest = () => {
     );
   }
 
+  // Safety check - if no items, show empty state
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <Button variant="ghost" onClick={() => navigate("/study-hall")} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Study Hall
+        </Button>
+        <Card className="p-6 md:p-8 text-center">
+          <p className="text-muted-foreground mb-4">This deck has no cards yet.</p>
+          <Button onClick={() => navigate(`/deck/${cardId}`)}>
+            Go to Deck
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Safety check for currentItem
+  if (!items[currentIndex]) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <Button variant="ghost" onClick={() => navigate("/study-hall")} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Study Hall
+        </Button>
+        <Card className="p-6 md:p-8 text-center">
+          <p className="text-muted-foreground">Error loading card. Please try again.</p>
+        </Card>
+      </div>
+    );
+  }
+
   const currentItem = items[currentIndex];
   const progress = ((currentIndex + 1) / items.length) * 100;
   const isComplete = currentIndex === items.length - 1 && answered.has(currentItem.id);
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
+    <div className="min-h-screen bg-background p-3 md:p-4 lg:p-6">
+      {showAnimation && animationData && (
+        <AnswerAnimation
+          isCorrect={animationData.isCorrect}
+          xpEarned={animationData.xpEarned}
+          onComplete={handleAnimationComplete}
+        />
+      )}
+      <div className="max-w-4xl mx-auto space-y-3 md:space-y-4 lg:space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-2 md:gap-4">
@@ -375,7 +461,7 @@ const StudyQuest = () => {
 
         {/* Flashcard */}
         <Card
-          className="min-h-[300px] md:min-h-[400px] flex items-center justify-center p-6 md:p-8 cursor-pointer hover:shadow-lg transition-shadow"
+          className="min-h-[250px] sm:min-h-[300px] md:min-h-[400px] flex items-center justify-center p-4 sm:p-6 md:p-8 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => !showAnswerInput && handleFlip()}
         >
           <div className="text-center space-y-4 w-full">
@@ -446,16 +532,16 @@ const StudyQuest = () => {
         </div>
 
         {/* Completion */}
-        {isComplete && (
+        {answered.size === items.length && (
           <Card className="p-6 bg-game-green/10 border-game-green/50">
             <div className="text-center space-y-4">
-              <h3 className="text-2xl font-bold">Great job!</h3>
+              <h3 className="text-2xl font-bold">Great job! 🎉</h3>
               <p className="text-muted-foreground">
                 You completed {card.title} with {correct.size} out of {items.length} correct answers.
               </p>
-              <Button onClick={saveStudySession} className="bg-game-green hover:bg-game-green-dark">
-                Save Progress & Earn XP
-              </Button>
+              <p className="text-lg font-semibold text-game-green">
+                Total XP Earned: {correct.size * 10} XP
+              </p>
             </div>
           </Card>
         )}

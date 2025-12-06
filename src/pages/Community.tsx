@@ -559,14 +559,14 @@ const Community = () => {
       <div className="community-halo community-halo-one animate-gradient-slow" />
       <div className="community-halo community-halo-two animate-gradient-slow" />
 
-      <div className="relative z-10 container mx-auto px-4 py-10 max-w-5xl space-y-8">
-        <section className="community-panel rounded-3xl p-6 sm:p-10 shadow-glow">
+      <div className="relative z-10 container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 md:py-10 max-w-5xl space-y-6 md:space-y-8">
+        <section className="community-panel rounded-3xl p-4 sm:p-6 md:p-10 shadow-glow">
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-primary/70 mb-3">
                 Share & Inspire
               </p>
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-3 md:mb-4">
                 Community Hub
               </h1>
               <p className="text-muted-foreground max-w-2xl">
@@ -608,9 +608,9 @@ const Community = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
               {communityStats.map(({ label, value, description, Icon }) => (
-                <Card key={label} className="community-stat-card p-4">
+                <Card key={label} className="community-stat-card p-3 md:p-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="p-2 rounded-xl bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
@@ -629,7 +629,7 @@ const Community = () => {
 
         <Card className="community-panel p-0 overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
-          <div className="p-4 sm:p-6">
+          <div className="p-3 sm:p-4 md:p-6">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -654,7 +654,7 @@ const Community = () => {
               <Card
                 key={post.id}
                 id={`post-${post.id}`}
-                className="community-card relative overflow-hidden p-6 sm:p-8 transition-all duration-500 hover:-translate-y-1"
+                className="community-card relative overflow-hidden p-4 sm:p-6 md:p-8 transition-all duration-500 hover:-translate-y-1"
               >
                 <div className="community-card-glow" />
                 <div className="relative z-10 space-y-5">

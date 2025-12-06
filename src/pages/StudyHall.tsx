@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { 
   Rocket, BarChart3, Globe, User, Plus, ChevronRight, 
   Star, Award, Flame,
-  Trophy, Share2, Target, Users
+  Trophy, Share2, Target, Users, Menu
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +23,7 @@ import { ProfilePopupButton } from "@/components/ProfilePopupButton";
 import { LeaderboardDialog } from "@/components/LeaderboardDialog";
 import { CreateCardDialog } from "@/components/CreateCardDialog";
 import { FriendRequestDialog } from "@/components/FriendRequestDialog";
+import { NotificationBell } from "@/components/NotificationBell";
 
 interface Profile {
   id: string;
@@ -343,7 +343,7 @@ const StudyHall = () => {
             {myCards.map((card) => (
               <button
                 key={card.id}
-                onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                onClick={() => navigate(`/deck/${card.id}`)}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-sidebar-accent/50 transition-colors group"
               >
                 <div
@@ -496,23 +496,85 @@ const StudyHall = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 mt-16 md:mt-0">
         {/* Top Header */}
-        <header className="h-16 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 shrink-0 flex-wrap gap-2">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs md:text-sm">
-              <User className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">StudyQuest Live</span>
-              <span className="sm:hidden">Live</span>
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2 md:gap-4 flex-wrap">
-            <div className="flex items-center gap-1 md:gap-2">
-              <Star className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 fill-yellow-500" />
-              <span className="font-semibold text-sm md:text-base">{currentProfile.xp}</span>
+        <header className="min-h-16 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-end px-3 md:px-6 py-2 shrink-0 gap-2">
+          <div className="flex items-center gap-1 md:gap-4 flex-shrink-0">
+            {/* Navigation Links - Desktop */}
+            <div className="hidden lg:flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/study-hall")}
+                className="text-foreground/80 hover:text-foreground text-xs"
+              >
+                Study Hall
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/community")}
+                className="text-foreground/80 hover:text-foreground text-xs"
+              >
+                Community
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/announcements")}
+                className="text-foreground/80 hover:text-foreground text-xs"
+              >
+                Announcements
+              </Button>
             </div>
+            {/* Mobile Navigation Menu */}
+            <Sheet>
+              <SheetTrigger asChild className="lg:hidden">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <div className="flex flex-col gap-4 mt-8">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/study-hall")}
+                  >
+                    Study Hall
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/community")}
+                  >
+                    Community
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/announcements")}
+                  >
+                    Announcements
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate("/profile")}
+                  >
+                    Profile
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            {/* XP Display - Hidden on very small screens */}
+            <div className="hidden sm:flex items-center gap-1 md:gap-2">
+              <Star className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 fill-yellow-500 shrink-0" />
+              <span className="font-semibold text-xs md:text-sm whitespace-nowrap">{currentProfile.xp}</span>
+            </div>
+            {/* Leaderboard - Desktop */}
             <Button
               variant="ghost"
               size="sm"
-              className="hidden sm:flex"
+              className="hidden md:flex"
               onClick={() => {
                 const trigger = document.getElementById("leaderboard-trigger");
                 if (trigger) trigger.click();
@@ -521,10 +583,11 @@ const StudyHall = () => {
               <Trophy className="h-4 w-4 mr-2" />
               Leaderboard
             </Button>
+            {/* Friends - Desktop */}
             <Button
               variant="ghost"
               size="sm"
-              className="hidden sm:flex"
+              className="hidden md:flex"
               onClick={() => {
                 const trigger = document.getElementById("friend-request-trigger");
                 if (trigger) trigger.click();
@@ -533,34 +596,15 @@ const StudyHall = () => {
               <Users className="h-4 w-4 mr-2" />
               Friends
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="sm:hidden"
-              onClick={() => {
-                const trigger = document.getElementById("leaderboard-trigger");
-                if (trigger) trigger.click();
-              }}
-            >
-              <Trophy className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="sm:hidden"
-              onClick={() => {
-                const trigger = document.getElementById("friend-request-trigger");
-                if (trigger) trigger.click();
-              }}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-            <ProfilePopupButton />
+            {/* Notification Bell */}
+            <NotificationBell />
+            {/* Profile Popup */}
+            <ProfilePopupButton hideProfile={true} />
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-background">
+        <main className="flex-1 p-3 md:p-4 lg:p-6 overflow-y-auto bg-background">
           {selectedNav === "public-decks" ? (
             <div className="max-w-4xl mx-auto space-y-6">
               <h2 className="text-2xl font-bold">Public Decks</h2>
@@ -596,7 +640,7 @@ const StudyHall = () => {
                   <Card
                     key={card.id}
                     className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => navigate(`/study-quest?card=${card.id}`)}
+                    onClick={() => navigate(`/deck/${card.id}`)}
                   >
                     <div
                       className="w-full h-2 rounded mb-3"
@@ -622,28 +666,28 @@ const StudyHall = () => {
               </div>
             </div>
           ) : (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
             {/* Progress Card */}
-            <Card className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar className="h-16 w-16">
+            <Card className="p-4 md:p-6">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="relative shrink-0">
+                  <Avatar className="h-12 w-12 md:h-16 md:w-16">
                     <AvatarImage src={currentProfile.avatar_url || undefined} />
                     <AvatarFallback>
                       {currentProfile.full_name?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                  <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-black rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center text-xs font-bold">
                     {currentProfile.level}
                   </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-1">{roleDisplay}</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base md:text-lg font-semibold mb-1">{roleDisplay}</h3>
                   <div className="space-y-2">
                     <Progress value={xpProgress} className="h-2" />
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Level {currentProfile.level}: {maxXP} XP</span>
-                      <span className="text-muted-foreground">{currentProfile.xp} XP</span>
+                    <div className="flex justify-between text-xs md:text-sm">
+                      <span className="text-muted-foreground truncate pr-2">Level {currentProfile.level}: {maxXP} XP</span>
+                      <span className="text-muted-foreground shrink-0">{currentProfile.xp} XP</span>
                     </div>
                   </div>
                 </div>
@@ -651,8 +695,8 @@ const StudyHall = () => {
             </Card>
 
             {/* Stats Grid - Compact Modern Design */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="p-4 bg-gradient-card border-border/50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <Card className="p-3 md:p-4 bg-gradient-card border-border/50">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Total XP</p>

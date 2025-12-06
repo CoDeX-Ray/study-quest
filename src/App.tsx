@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import StudyHall from "./pages/StudyHall";
 import StudyQuest from "./pages/StudyQuest";
+import DeckDetail from "./pages/DeckDetail";
 import Community from "./pages/Community";
 import CreatePost from "./pages/CreatePost";
 import Auth from "./pages/Auth";
@@ -56,6 +57,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/study-hall" element={<StudyHall />} />
+                <Route path="/deck/:deckId" element={<DeckDetail />} />
                 <Route path="/study-quest" element={<StudyQuest />} />
                 <Route path="/community" element={<Community />} />
                 <Route path="/create-post" element={<CreatePost />} />
