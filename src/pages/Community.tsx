@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Plus,
   ThumbsUp,
@@ -51,6 +51,7 @@ const Community = () => {
   const [commentDeleting, setCommentDeleting] = useState<Record<string, boolean>>({});
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [fetchingMore, setFetchingMore] = useState(false);
+  const location = useLocation();
 
   const fetchPosts = useCallback(
     async ({ offset = 0, replace = false }: { offset?: number; replace?: boolean } = {}) => {
@@ -99,24 +100,24 @@ const Community = () => {
   }, [fetchPosts, user?.id]);
 
   useEffect(() => {
-    // Scroll to post if hash is present
-    const scrollToPost = () => {
-      const hash = window.location.hash;
-      if (hash) {
-        const postId = hash.replace('#', '');
-        setTimeout(() => {
-          const element = document.getElementById(postId);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+    // Support shared links in HashRouter: look for ?post=ID in hash route
+    const scrollToPostFromLocation = () => {
+      try {
+        const params = new URLSearchParams(location.search);
+        const postId = params.get("post");
+        if (postId) {
+          setTimeout(() => {
+            const element = document.getElementById(`post-${postId}`);
+            if (element) element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 150);
+        }
+      } catch (e) {
+        // ignore
       }
     };
 
-    scrollToPost();
-    window.addEventListener('hashchange', scrollToPost);
-    return () => window.removeEventListener('hashchange', scrollToPost);
-  }, [posts]);
+    scrollToPostFromLocation();
+  }, [location, posts]);
 
   useEffect(() => {
     const fetchCurrentProfile = async () => {
@@ -312,8 +313,8 @@ const Community = () => {
 
     const shareUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/community#post-${post.id}`
-        : `/community#post-${post.id}`;
+        ? `${window.location.origin}/#/community?post=${post.id}`
+        : `/#/community?post=${post.id}`;
 
     setShareLoading((prev) => ({ ...prev, [post.id]: true }));
 

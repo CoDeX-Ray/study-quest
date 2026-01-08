@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -91,25 +92,27 @@ const Announcements = () => {
     fetchAnnouncements({ replace: true });
   }, [fetchAnnouncements]);
 
+  const location = useLocation();
+
   useEffect(() => {
-    // Scroll to post if hash is present
-    const scrollToPost = () => {
-      const hash = window.location.hash;
-      if (hash) {
-        const postId = hash.replace('#', '');
-        setTimeout(() => {
-          const element = document.getElementById(postId);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+    // Support shared links in HashRouter: look for ?post=ID in hash route
+    const scrollToPostFromLocation = () => {
+      try {
+        const params = new URLSearchParams(location.search);
+        const postId = params.get("post");
+        if (postId) {
+          setTimeout(() => {
+            const element = document.getElementById(`post-${postId}`);
+            if (element) element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 150);
+        }
+      } catch (e) {
+        // ignore
       }
     };
 
-    scrollToPost();
-    window.addEventListener('hashchange', scrollToPost);
-    return () => window.removeEventListener('hashchange', scrollToPost);
-  }, [announcements]);
+    scrollToPostFromLocation();
+  }, [location, announcements]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -295,8 +298,8 @@ const Announcements = () => {
 
     const shareUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/announcements#post-${post.id}`
-        : `/announcements#post-${post.id}`;
+        ? `${window.location.origin}/#/announcements?post=${post.id}`
+        : `/#/announcements?post=${post.id}`;
 
     setShareLoading((prev) => ({ ...prev, [post.id]: true }));
 
