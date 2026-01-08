@@ -14,9 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, UserPlus, Check } from "lucide-react";
+import { Search, Check } from "lucide-react";
 
-interface Friend {
+interface User {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
@@ -34,57 +34,34 @@ export const ShareCardDialog = ({ children, cardId, cardTitle }: ShareCardDialog
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [friends, setFriends] = useState<Friend[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [sharedWith, setSharedWith] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     if (open) {
-      fetchFriends();
+      fetchUsers();
       fetchSharedWith();
     }
   }, [open]);
 
-  const fetchFriends = async () => {
+  const fetchUsers = async () => {
     if (!user) return;
 
     try {
-      // Get accepted friends
-      const { data: friendData, error } = await supabase
-        .from("friends")
-        .select(`
-          friend_id,
-          user_id,
-          profiles:friend_id (
-            id,
-            full_name,
-            avatar_url,
-            email,
-            role
-          )
-        `)
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .eq("status", "accepted");
+      // Fetch all users except the current user
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, email, role")
+        .neq("id", user.id)
+        .limit(100);
 
       if (error) throw error;
 
-      const friendList: Friend[] = [];
-      if (friendData) {
-        friendData.forEach((f) => {
-          const friendId = f.friend_id === user.id ? f.user_id : f.friend_id;
-          if (f.profiles && !Array.isArray(f.profiles)) {
-            friendList.push({
-              id: friendId,
-              ...(f.profiles as any),
-            });
-          }
-        });
-      }
-
-      setFriends(friendList);
+      setUsers(data || []);
     } catch (error: any) {
-      console.error("Error fetching friends:", error);
+      console.error("Error fetching users:", error);
     }
   };
 
@@ -127,9 +104,9 @@ export const ShareCardDialog = ({ children, cardId, cardTitle }: ShareCardDialog
     }
   };
 
-  const filteredFriends = friends.filter((friend) =>
-    friend.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter((u) =>
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -139,7 +116,7 @@ export const ShareCardDialog = ({ children, cardId, cardTitle }: ShareCardDialog
         <DialogHeader>
           <DialogTitle>Share "{cardTitle}"</DialogTitle>
           <DialogDescription>
-            Share this study card deck with your friends
+            Share this study card deck with others
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -153,46 +130,33 @@ export const ShareCardDialog = ({ children, cardId, cardTitle }: ShareCardDialog
             />
           </div>
           <div className="max-h-[400px] overflow-y-auto space-y-2">
-            {filteredFriends.length === 0 ? (
+            {filteredUsers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {friends.length === 0 ? (
-                  <div className="space-y-2">
-                    <p>No friends yet.</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setOpen(false);
-                        // Navigate to friends page or open friend request dialog
-                      }}
-                    >
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add Friends
-                    </Button>
-                  </div>
+                {users.length === 0 ? (
+                  <p>No users available to share with.</p>
                 ) : (
-                  <p>No friends match your search.</p>
+                  <p>No users match your search.</p>
                 )}
               </div>
             ) : (
-              filteredFriends.map((friend) => (
+              filteredUsers.map((u) => (
                 <div
-                  key={friend.id}
+                  key={u.id}
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={friend.avatar_url || undefined} />
+                      <AvatarImage src={u.avatar_url || undefined} />
                       <AvatarFallback>
-                        {friend.full_name?.charAt(0) || "U"}
+                        {u.full_name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{friend.full_name || "Anonymous"}</p>
-                      <p className="text-sm text-muted-foreground">{friend.email}</p>
+                      <p className="font-medium">{u.full_name || "Anonymous"}</p>
+                      <p className="text-sm text-muted-foreground">{u.email}</p>
                     </div>
                   </div>
-                  {sharedWith.has(friend.id) ? (
+                  {sharedWith.has(u.id) ? (
                     <Badge variant="outline" className="gap-1">
                       <Check className="h-3 w-3" />
                       Shared
@@ -200,7 +164,7 @@ export const ShareCardDialog = ({ children, cardId, cardTitle }: ShareCardDialog
                   ) : (
                     <Button
                       size="sm"
-                      onClick={() => handleShare(friend.id)}
+                      onClick={() => handleShare(u.id)}
                       disabled={loading}
                     >
                       Share

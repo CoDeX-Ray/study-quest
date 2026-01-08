@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderboardUser {
@@ -26,6 +27,7 @@ interface LeaderboardUser {
 
 export const LeaderboardDialog = () => {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const [open, setOpen] = useState(false);
   const [allUsers, setAllUsers] = useState<LeaderboardUser[]>([]);
   const [students, setStudents] = useState<LeaderboardUser[]>([]);
@@ -53,9 +55,12 @@ export const LeaderboardDialog = () => {
       if (error) throw error;
 
       if (data) {
-        setAllUsers(data);
-        setStudents(data.filter((u) => u.role === "student"));
-        setProfessionals(data.filter((u) => u.role === "professional"));
+        // Filter out admin users if the current user is not an admin
+        const filteredData = isAdmin ? data : data.filter((u) => u.role !== "admin");
+
+        setAllUsers(filteredData);
+        setStudents(filteredData.filter((u) => u.role === "student"));
+        setProfessionals(filteredData.filter((u) => u.role === "professional"));
       }
     } catch (error: any) {
       console.error("Error fetching leaderboard:", error);
@@ -88,7 +93,7 @@ export const LeaderboardDialog = () => {
     }
 
     return (
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+      <div className="space-y-2 overflow-y-auto max-h-[55vh] pr-3">
         {users.map((userProfile, index) => (
           <div
             key={userProfile.id}
@@ -148,7 +153,7 @@ export const LeaderboardDialog = () => {
         id="leaderboard-trigger"
       />
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-yellow-500" />

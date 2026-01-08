@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Rocket, BarChart3, Globe, User, Plus, ChevronRight, 
+import {
+  Rocket, BarChart3, Globe, User, Plus, ChevronRight,
   Star, Award, Flame,
   Trophy, Share2, Target, Users, Menu
 } from "lucide-react";
@@ -23,7 +23,6 @@ import StudyQuestLogo from "@/components/StudyQuestLogo";
 import { ProfilePopupButton } from "@/components/ProfilePopupButton";
 import { LeaderboardDialog } from "@/components/LeaderboardDialog";
 import { CreateCardDialog } from "@/components/CreateCardDialog";
-import { FriendRequestDialog } from "@/components/FriendRequestDialog";
 import { NotificationBell } from "@/components/NotificationBell";
 
 interface Profile {
@@ -87,7 +86,7 @@ const StudyHall = () => {
       setProfileLoading(false);
       return;
     }
-    
+
     try {
       setProfileLoading(true);
       const { data, error } = await supabase
@@ -95,7 +94,7 @@ const StudyHall = () => {
         .select("*")
         .eq("id", user.id)
         .single();
-      
+
       if (error) {
         console.error("Error fetching profile:", error);
         // If profile doesn't exist, create a default one
@@ -137,7 +136,7 @@ const StudyHall = () => {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5);
-      
+
       if (error) {
         console.error("Error fetching posts:", error);
       } else if (data) {
@@ -157,7 +156,7 @@ const StudyHall = () => {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      
+
       if (cardsError) {
         console.error("Error fetching cards:", cardsError);
         return;
@@ -170,7 +169,7 @@ const StudyHall = () => {
           .from("study_card_items")
           .select("card_id")
           .in("card_id", cardIds);
-        
+
         // Count items per card
         const countMap = new Map<string, number>();
         if (itemsData) {
@@ -178,13 +177,13 @@ const StudyHall = () => {
             countMap.set(item.card_id, (countMap.get(item.card_id) || 0) + 1);
           });
         }
-        
+
         // Map cards with count
         const cardsWithCount = cardsData.map(card => ({
           ...card,
           card_count: countMap.get(card.id) || 0
         }));
-        
+
         setMyCards(cardsWithCount);
       } else {
         setMyCards([]);
@@ -202,7 +201,7 @@ const StudyHall = () => {
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(20);
-      
+
       if (error) {
         console.error("Error fetching public cards:", error);
       } else if (data) {
@@ -217,7 +216,7 @@ const StudyHall = () => {
   useEffect(() => {
     const checkCardsWithItems = async () => {
       const allCardIds = [...myCards.map(c => c.id), ...publicCards.map(c => c.id)];
-      
+
       if (allCardIds.length === 0) {
         setHasCardsWithItems(false);
         return;
@@ -229,7 +228,7 @@ const StudyHall = () => {
         .select("card_id")
         .in("card_id", allCardIds)
         .limit(1);
-      
+
       setHasCardsWithItems(data && data.length > 0);
     };
 
@@ -285,7 +284,7 @@ const StudyHall = () => {
 
     // Optimized: Find first card with items using a single query
     const allCardIds = [...myCards.map(c => c.id), ...publicCards.map(c => c.id)];
-    
+
     // Get the first card that has items
     const { data: items } = await supabase
       .from("study_card_items")
@@ -293,7 +292,7 @@ const StudyHall = () => {
       .in("card_id", allCardIds)
       .order("card_id")
       .limit(1);
-    
+
     if (items && items.length > 0) {
       navigate(`/study-quest?card=${items[0].card_id}`);
       return;
@@ -329,7 +328,7 @@ const StudyHall = () => {
             <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
             <span className="text-xl font-bold">StudyQuest</span>
           </div>
-          
+
           {/* Navigation */}
           <nav className="space-y-1">
             <button
@@ -458,7 +457,7 @@ const StudyHall = () => {
               <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
               <span className="text-xl font-bold">StudyQuest</span>
             </div>
-            
+
             {/* Navigation */}
             <nav className="space-y-1">
               <button
@@ -665,19 +664,6 @@ const StudyHall = () => {
               <Trophy className="h-4 w-4 mr-2" />
               Leaderboard
             </Button>
-            {/* Friends - Desktop */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden md:flex"
-              onClick={() => {
-                const trigger = document.getElementById("friend-request-trigger");
-                if (trigger) trigger.click();
-              }}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Friends
-            </Button>
             {/* Notification Bell */}
             <NotificationBell />
             {/* Profile Popup */}
@@ -853,8 +839,8 @@ const StudyHall = () => {
                     {currentProfile.current_streak || 0}
                   </div>
                   <p className="text-xs md:text-sm text-muted-foreground mb-4 md:mb-6">
-                    {currentProfile.current_streak && currentProfile.current_streak > 0 
-                      ? "Day streak! 🔥" 
+                    {currentProfile.current_streak && currentProfile.current_streak > 0
+                      ? "Day streak! 🔥"
                       : "Complete a deck to start your streak"}
                   </p>
                   <div className="relative w-24 h-24 md:w-32 md:h-32">
@@ -903,9 +889,6 @@ const StudyHall = () => {
 
       {/* Leaderboard Dialog */}
       <LeaderboardDialog />
-      
-      {/* Friend Request Dialog */}
-      <FriendRequestDialog />
     </div>
   );
 };
