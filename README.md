@@ -159,6 +159,68 @@ Proprietary - All rights reserved
 
 For support, please contact the StudyQuest team or visit our community forum within the application.
 
+## IDE & Customization
+
+- **Recommended IDE:** Visual Studio Code (VS Code). Other editors like JetBrains WebStorm or Neovim work fine, but examples below assume VS Code.
+
+- **Recommended VS Code extensions:**
+	- `esbenp.prettier-vscode` — Prettier (formatting)
+	- `dbaeumer.vscode-eslint` — ESLint (linting)
+	- `bradlc.vscode-tailwindcss` — Tailwind CSS IntelliSense
+	- `ms-vscode.vscode-typescript-next` or built-in TypeScript support
+	- `supabase.supabase` — Supabase (optional)
+
+- **Useful workspace settings (add to `.vscode/settings.json`):**
+
+```json
+{
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"files.trimTrailingWhitespace": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll": true
+	},
+	"tailwindCSS.experimental.classRegex": ["className\\s*[:=]\\s*\"([^\"]*)\""]
+}
+```
+
+- **Recommended workspace extensions (add to `.vscode/extensions.json`):**
+
+```json
+{
+	"recommendations": [
+		"esbenp.prettier-vscode",
+		"dbaeumer.vscode-eslint",
+		"bradlc.vscode-tailwindcss",
+		"supabase.supabase"
+	]
+}
+```
+
+- **What to customize and where:**
+	- Styles & tokens: `tailwind.config.ts`, `src/index.css`, and `src/App.css` — update theme, colors, and design tokens here.
+	- UI components: `src/components/` and `src/components/ui/` — customize or replace shadcn/ui components.
+	- Pages and layout: `src/pages/` — edit page-level layout and routing.
+	- Supabase config: `.env` (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY) and `src/integrations/supabase/` for client setup.
+	- Database migrations and functions: `supabase/migrations/` — modify SQL migrations and functions as needed.
+
+- **Tips for safe customization:**
+	- Use feature branches for UI or database changes.
+	- Keep RLS and Supabase policies in sync with front-end role changes.
+	- If changing Tailwind config, run the dev server to verify class name detection and re-build CSS.
+
+- **Quick commands** (run in project root):
+
+```bash
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
 ---
 
-Built with ❤️ using Lovable and modern web technologies
