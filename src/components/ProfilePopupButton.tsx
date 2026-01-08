@@ -36,7 +36,7 @@ export const ProfilePopupButton = ({ hideProfile = false }: ProfilePopupButtonPr
       .select("*")
       .eq("id", user?.id)
       .single();
-    
+
     if (data) setProfile(data);
   };
 

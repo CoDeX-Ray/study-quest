@@ -52,10 +52,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             },
           });
       }
-      
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
+
       // Navigate after successful sign out
       navigate("/auth");
     } catch (error) {
