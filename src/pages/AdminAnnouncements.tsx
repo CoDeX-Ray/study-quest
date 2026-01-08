@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { Post } from "@/types/community";
 
 const AdminAnnouncements = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -333,9 +335,9 @@ const AdminAnnouncements = () => {
                   variant="ghost"
                   size="sm"
                   className="text-primary"
-                  asChild
+                  onClick={() => navigate(`/announcements#post-${announcement.id}`)}
                 >
-                  <a href={`/announcements#post-${announcement.id}`}>View announcement</a>
+                  View announcement
                 </Button>
               </Card>
             ))}
