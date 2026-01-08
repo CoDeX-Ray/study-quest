@@ -22,6 +22,7 @@ export const ProfilePopupButton = ({ hideProfile = false }: ProfilePopupButtonPr
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -39,11 +40,16 @@ export const ProfilePopupButton = ({ hideProfile = false }: ProfilePopupButtonPr
     if (data) setProfile(data);
   };
 
+  const handleSignOut = async () => {
+    setDropdownOpen(false);
+    await signOut();
+  };
+
   if (!user) return null;
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="flex items-center gap-2">
             <Avatar className="h-8 w-8">
@@ -69,7 +75,7 @@ export const ProfilePopupButton = ({ hideProfile = false }: ProfilePopupButtonPr
             <Trophy className="mr-2 h-4 w-4" />
             Leaderboard
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={signOut}>
+          <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </DropdownMenuItem>

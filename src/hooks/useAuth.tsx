@@ -39,21 +39,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    // Log activity: user signed out (before signing out)
-    if (user) {
-      await supabase
-        .from("activity_logs")
-        .insert({
-          user_id: user.id,
-          action: "Signed out",
-          details: {
-            timestamp: new Date().toISOString(),
-          },
-        });
+    try {
+      // Log activity: user signed out (before signing out)
+      if (user) {
+        await supabase
+          .from("activity_logs")
+          .insert({
+            user_id: user.id,
+            action: "Signed out",
+            details: {
+              timestamp: new Date().toISOString(),
+            },
+          });
+      }
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Navigate after successful sign out
+      navigate("/auth");
+    } catch (error) {
+      console.error("Sign out error:", error);
+      // Still navigate even if there's an error
+      navigate("/auth");
     }
-    
-    await supabase.auth.signOut();
-    navigate("/");
   };
 
   return (

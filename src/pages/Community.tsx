@@ -99,6 +99,26 @@ const Community = () => {
   }, [fetchPosts, user?.id]);
 
   useEffect(() => {
+    // Scroll to post if hash is present
+    const scrollToPost = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        const postId = hash.replace('#', '');
+        setTimeout(() => {
+          const element = document.getElementById(postId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    };
+
+    scrollToPost();
+    window.addEventListener('hashchange', scrollToPost);
+    return () => window.removeEventListener('hashchange', scrollToPost);
+  }, [posts]);
+
+  useEffect(() => {
     const fetchCurrentProfile = async () => {
       if (!user) {
         setCurrentProfile(null);

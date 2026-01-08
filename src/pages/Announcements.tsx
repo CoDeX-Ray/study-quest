@@ -92,6 +92,26 @@ const Announcements = () => {
   }, [fetchAnnouncements]);
 
   useEffect(() => {
+    // Scroll to post if hash is present
+    const scrollToPost = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        const postId = hash.replace('#', '');
+        setTimeout(() => {
+          const element = document.getElementById(postId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    };
+
+    scrollToPost();
+    window.addEventListener('hashchange', scrollToPost);
+    return () => window.removeEventListener('hashchange', scrollToPost);
+  }, [announcements]);
+
+  useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
         setCurrentProfile(null);
@@ -275,8 +295,8 @@ const Announcements = () => {
 
     const shareUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/community#post-${post.id}`
-        : `/community#post-${post.id}`;
+        ? `${window.location.origin}/announcements#post-${post.id}`
+        : `/announcements#post-${post.id}`;
 
     setShareLoading((prev) => ({ ...prev, [post.id]: true }));
 
@@ -448,6 +468,7 @@ const Announcements = () => {
             return (
               <Card
                 key={announcement.id}
+                id={`post-${announcement.id}`}
                 className="community-card relative overflow-hidden p-4 sm:p-6 md:p-8"
               >
                 <div className="community-card-glow" />
