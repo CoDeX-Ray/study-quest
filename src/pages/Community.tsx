@@ -311,10 +311,11 @@ const Community = () => {
       return;
     }
 
+    const base = (import.meta as any).env?.BASE_URL || "/";
     const shareUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/#/community?post=${post.id}`
-        : `/#/community?post=${post.id}`;
+        ? `${window.location.origin.replace(/\/$/, "")}${base}#/community?post=${post.id}`
+        : `${base}#/community?post=${post.id}`;
 
     setShareLoading((prev) => ({ ...prev, [post.id]: true }));
 

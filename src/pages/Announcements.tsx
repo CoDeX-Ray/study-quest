@@ -296,10 +296,11 @@ const Announcements = () => {
       return;
     }
 
+    const base = (import.meta as any).env?.BASE_URL || "/";
     const shareUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/#/announcements?post=${post.id}`
-        : `/#/announcements?post=${post.id}`;
+        ? `${window.location.origin.replace(/\/$/, "")}${base}#/announcements?post=${post.id}`
+        : `${base}#/announcements?post=${post.id}`;
 
     setShareLoading((prev) => ({ ...prev, [post.id]: true }));
 
